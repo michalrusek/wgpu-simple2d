@@ -1,4 +1,5 @@
 mod state;
+mod texture;
 use state::*;
 
 use winit::{
@@ -31,29 +32,27 @@ fn main() {
                 ref event,
                 window_id,
             } => {
-                if window_id == window.id() {
-                    if !state.handle_window_event(event) {
-                        match event {
-                            WindowEvent::CloseRequested => *control_flow = ControlFlow::Exit,
-                            WindowEvent::Resized(physical_size) => {
-                                state.resize(*physical_size);
-                            }
-                            WindowEvent::ScaleFactorChanged {new_inner_size, .. } => {
-                                state.resize(**new_inner_size);
-                            }
-                            WindowEvent::KeyboardInput {input, .. } => {
-                                // TODO: REMOVE LATER AND LET THE STATE HANDLE ALL INPUT
-                                match input {
-                                    KeyboardInput {
-                                        state: ElementState::Pressed, 
-                                        virtual_keycode: Some(VirtualKeyCode::Escape),
-                                        ..
-                                    } => *control_flow = ControlFlow::Exit,
-                                    _ => {}
-                                }
-                            }
-                            _ => {}
+                if window_id == window.id() && !state.handle_window_event(event) {
+                    match event {
+                        WindowEvent::CloseRequested => *control_flow = ControlFlow::Exit,
+                        WindowEvent::Resized(physical_size) => {
+                            state.resize(*physical_size);
                         }
+                        WindowEvent::ScaleFactorChanged {new_inner_size, .. } => {
+                            state.resize(**new_inner_size);
+                        }
+                        WindowEvent::KeyboardInput {input, .. } => {
+                            // TODO: REMOVE LATER AND LET THE STATE HANDLE ALL INPUT
+                            match input {
+                                KeyboardInput {
+                                    state: ElementState::Pressed, 
+                                    virtual_keycode: Some(VirtualKeyCode::Escape),
+                                    ..
+                                } => *control_flow = ControlFlow::Exit,
+                                _ => {}
+                            }
+                        }
+                        _ => {}
                     }
                 }
             }

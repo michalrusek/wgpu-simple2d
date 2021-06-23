@@ -1,7 +1,8 @@
 use crate::texture::Texture;
 use std::{mem};
+use wgpu::util::DeviceExt;
 
-pub struct State {
+pub struct Renderer {
     surface: wgpu::Surface,
     device: wgpu::Device,
     queue: wgpu::Queue,
@@ -11,11 +12,12 @@ pub struct State {
     render_pipeline: wgpu::RenderPipeline,
     depth_texture: Texture,
     texture_bind_group_layout: wgpu::BindGroupLayout,
-    some_texture: Texture,
+    textures: Vec<Texture>,
+    desired_res: winit::dpi::PhysicalSize<u32>,
 }
 
-impl State {
-    pub async fn new(window: &winit::window::Window) -> Self {
+impl Renderer {
+    pub async fn new(window: &winit::window::Window, desired_res: winit::dpi::PhysicalSize<u32>) -> Self {
         let size = window.inner_size();
         
         let instance = wgpu::Instance::new(wgpu::BackendBit::PRIMARY);
@@ -155,23 +157,14 @@ impl State {
             depth_texture, 
             render_pipeline, 
             texture_bind_group_layout, 
-            some_texture 
+            textures: vec![],
+            desired_res
         }
     }
-
-    pub fn update_and_render(&mut self) {
-        self.update();
-        self.render();
-    }
-
-    fn update(&mut self) {
-        // WORLD LOGIC RUN
-        // TODO: MAKE EXTENSIBLE THROUGH SOME SCRIPTS MAYBE? LIKE INSERT A V8 AND RUN JS SCRIPTS FOR THE GAME LOGIC?
-    }
-    fn render(&mut self) {
+    pub fn render(&mut self, renderables: &Vec<Renderable>) {
         // SEND BUFFERS AND SHIT TO GPU AND RENDER
         let frame = self.swap_chain.get_current_frame()
-            .expect("Didnt get texture")
+            .expect("Didnt get frame")
             .output;
 
         let mut encoder = self.device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
@@ -179,6 +172,49 @@ impl State {
         });
 
         {
+            let mut buffers: Vec<wgpu::Buffer> = vec![];
+            for renderable in renderables {
+                if renderable.texture_id as usize > (self.textures.len() - 1) {
+                    println!("Wrong texture id {:?}. Can't create buffer", renderable.texture_id);
+                } else {
+                    // assume target resolution of 1280x720 keeping the horizontal ratio steady
+                    let horiz_ratio = self.size.width as f32 / self.desired_res.width as f32;
+                    let vert_ration = self.size.height as f32 / self.desired_res.height as f32;
+                    
+                    // calculate points based on the ratio and stuff
+                    let p1x = renderable.p1[0] * vert_ration * 2.0 - 1.0;
+                    let p1y = -(renderable.p1[1] * horiz_ratio * 2.0 - 1.0);
+                    let (p2x, p2y) = {
+                        if renderable.use_texture_size {
+                            let texture = self.textures.get(renderable.texture_id as usize).unwrap();
+                            let x = (renderable.p1[0] + texture.width as f32 / self.desired_res.width as f32) * vert_ration * 2.0 - 1.;
+                            let y = -((renderable.p1[1] + texture.height as f32 / self.desired_res.height as f32) * horiz_ratio * 2.0 - 1.);
+                            (x, y)
+                        } else {
+                            (renderable.p2[0] * vert_ration * 2.0 - 1.0, -(renderable.p2[1] * horiz_ratio * 2.0 - 1.0))
+                        }
+                    };
+                    
+                    buffers.push(
+                        self.device.create_buffer_init(
+                            &wgpu::util::BufferInitDescriptor {
+                                label: None,
+                                contents: bytemuck::cast_slice(&[
+                                    crate::texture::Vertex{position: [p1x, p1y, 0.0], tex_coords: [0.0, 0.0]},
+                                    crate::texture::Vertex{position: [p1x, p2y, 0.0], tex_coords: [0.0, 1.0]},
+                                    crate::texture::Vertex{position: [p2x, p2y, 0.0], tex_coords: [1.0, 1.0]},
+                
+                                    crate::texture::Vertex{position: [p1x, p1y, 0.0], tex_coords: [0.0, 0.0]},
+                                    crate::texture::Vertex{position: [p2x, p2y, 0.0], tex_coords: [1.0, 1.0]},
+                                    crate::texture::Vertex{position: [p2x, p1y, 0.0], tex_coords: [1.0, 0.0]},
+                
+                                ]),
+                                usage: wgpu::BufferUsage::VERTEX,
+                            }
+                        )
+                    );
+                }
+            }
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 color_attachments: &[
                     wgpu::RenderPassColorAttachmentDescriptor {
@@ -207,18 +243,21 @@ impl State {
 
             render_pass.set_pipeline(&self.render_pipeline);
 
-            let buffer = self.some_texture.vertex_buffer.as_ref().unwrap();
-            let bind_group = self.some_texture.bind_group.as_ref().unwrap();
-            render_pass.set_vertex_buffer(0, buffer.slice(..));
-            render_pass.set_bind_group(0, bind_group, &[]);
-            render_pass.draw(0..6, 0..1);
-            
+            for (i, renderable) in renderables.iter().enumerate() {
+                if renderable.texture_id as usize > (self.textures.len() - 1) {
+                    println!("Wrong texture id {:?}. Can't render", renderable.texture_id);
+                } else {
+                    let texture = self.textures.get(renderable.texture_id as usize).unwrap();
+                    let buffer = buffers.get(i).unwrap();
+                    let bind_group = texture.bind_group.as_ref().unwrap();
+                    render_pass.set_vertex_buffer(0, buffer.slice(..));
+                    render_pass.set_bind_group(0, bind_group, &[]);
+                    render_pass.draw(0..6, 0..1);
+                }
+            }            
         }
 
         self.queue.submit(std::iter::once(encoder.finish()));
-    }
-    pub fn handle_window_event(&mut self, event: &winit::event::WindowEvent) -> bool {
-        false
     }
     pub fn resize(&mut self, new_size: winit::dpi::PhysicalSize<u32>) {
         self.size = new_size;
@@ -227,4 +266,19 @@ impl State {
         self.depth_texture = Texture::create_depth_texture(&self.device, &self.sc_desc, "depth_texture");
         self.swap_chain = self.device.create_swap_chain(&self.surface, &self.sc_desc);
     }
+    pub fn register_texture(&mut self, texture_path: &str) -> u32 {
+        if let Ok(texture) = Texture::load(&self.device, &self.queue, texture_path, &self.texture_bind_group_layout) {
+            self.textures.push(texture);
+            (self.textures.len() - 1) as u32
+        } else {
+            panic!("Couldn't register texture: ".to_string() + &texture_path.to_string());
+        }        
+    }
+}
+
+pub struct Renderable {
+    pub texture_id: u32,
+    pub p1: [f32; 2],
+    pub p2: [f32; 2],
+    pub use_texture_size: bool,
 }

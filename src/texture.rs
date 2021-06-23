@@ -10,6 +10,8 @@ pub struct Texture {
     pub sampler: wgpu::Sampler,
     pub bind_group: Option<wgpu::BindGroup>,
     pub vertex_buffer: Option<wgpu::Buffer>,
+    pub width: u32,
+    pub height: u32,
 }
 
 impl Texture {
@@ -49,7 +51,7 @@ impl Texture {
             }
         );
 
-        Self { texture, view, sampler, bind_group: None, vertex_buffer: None }
+        Self { texture, view, sampler, bind_group: None, vertex_buffer: None, width: 0, height: 0 }
     }
 
     pub fn from_bytes(device: &wgpu::Device, queue: &wgpu::Queue, bytes: &[u8], label: &str, layout: &wgpu::BindGroupLayout) -> Result<Self> {
@@ -136,7 +138,15 @@ impl Texture {
             }
         );
 
-        Ok(Self {texture, view: texture_view, sampler: texture_sampler, bind_group: Some(bind_group), vertex_buffer: Some(vertex_buffer) })
+        Ok(Self {
+            texture, 
+            view: texture_view, 
+            sampler: texture_sampler, 
+            bind_group: Some(bind_group), 
+            vertex_buffer: Some(vertex_buffer), 
+            width: dimensions.0,
+            height: dimensions.1, 
+        })
     }
 
     pub fn load<P: AsRef<Path>>(

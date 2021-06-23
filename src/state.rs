@@ -10,6 +10,8 @@ pub struct State {
     size: winit::dpi::PhysicalSize<u32>,
     render_pipeline: wgpu::RenderPipeline,
     depth_texture: Texture,
+    texture_bind_group_layout: wgpu::BindGroupLayout,
+    some_texture: Texture,
 }
 
 impl State {
@@ -119,7 +121,7 @@ impl State {
                     index_format: wgpu::IndexFormat::Uint32,
                     vertex_buffers: &[
                         wgpu::VertexBufferDescriptor {
-                            stride: std::mem::size_of::<[f32; 5]>() as wgpu::BufferAddress,
+                            stride: std::mem::size_of::<crate::texture::Vertex>() as wgpu::BufferAddress,
                             step_mode: wgpu::InputStepMode::Vertex,
                             attributes: &[
                                 wgpu::VertexAttributeDescriptor {
@@ -142,7 +144,19 @@ impl State {
             })
         };
 
-        Self { size, surface, device, queue, sc_desc, swap_chain, depth_texture, render_pipeline }
+        let some_texture = Texture::load(&device, &queue, "res/test.png", &texture_bind_group_layout).unwrap();
+
+        Self { 
+            size, 
+            surface, 
+            device, queue, 
+            sc_desc, 
+            swap_chain, 
+            depth_texture, 
+            render_pipeline, 
+            texture_bind_group_layout, 
+            some_texture 
+        }
     }
 
     pub fn update_and_render(&mut self) {
@@ -192,6 +206,13 @@ impl State {
             });
 
             render_pass.set_pipeline(&self.render_pipeline);
+
+            let buffer = self.some_texture.vertex_buffer.as_ref().unwrap();
+            let bind_group = self.some_texture.bind_group.as_ref().unwrap();
+            render_pass.set_vertex_buffer(0, buffer.slice(..));
+            render_pass.set_bind_group(0, bind_group, &[]);
+            render_pass.draw(0..6, 0..1);
+            
         }
 
         self.queue.submit(std::iter::once(encoder.finish()));

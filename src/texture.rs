@@ -1,11 +1,15 @@
 use image::GenericImageView;
 use anyhow::Result;
 use std::path::Path;
+use wgpu::util::DeviceExt;
+
 
 pub struct Texture {
     pub texture: wgpu::Texture,
     pub view: wgpu::TextureView,
     pub sampler: wgpu::Sampler,
+    pub bind_group: Option<wgpu::BindGroup>,
+    pub vertex_buffer: Option<wgpu::Buffer>,
 }
 
 impl Texture {
@@ -45,14 +49,14 @@ impl Texture {
             }
         );
 
-        Self {texture, view, sampler}
+        Self { texture, view, sampler, bind_group: None, vertex_buffer: None }
     }
 
-    pub fn from_bytes(device: &wgpu::Device, queue: &wgpu::Queue, bytes: &[u8], label: &str) -> Result<Self> {
+    pub fn from_bytes(device: &wgpu::Device, queue: &wgpu::Queue, bytes: &[u8], label: &str, layout: &wgpu::BindGroupLayout) -> Result<Self> {
         let img = image::load_from_memory(bytes)?;
-        Self::from_image(device, queue, &img, Some(label))
+        Self::from_image(device, queue, &img, Some(label), layout)
     }
-    pub fn from_image(device: &wgpu::Device, queue: &wgpu::Queue, img: &image::DynamicImage, label: Option<&str>) -> Result<Self> {
+    pub fn from_image(device: &wgpu::Device, queue: &wgpu::Queue, img: &image::DynamicImage, label: Option<&str>, layout: &wgpu::BindGroupLayout) -> Result<Self> {
         let rgba = img.to_rgba();
         let dimensions = img.dimensions();
 
@@ -100,18 +104,62 @@ impl Texture {
             ..Default::default()
         });
 
-        Ok(Self {texture, view: texture_view, sampler: texture_sampler})
+        let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            layout,
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: wgpu::BindingResource::TextureView(&texture_view),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: wgpu::BindingResource::Sampler(&texture_sampler)
+                }
+            ],
+            label: None,
+        });
+
+        let vertex_buffer = device.create_buffer_init(
+            &wgpu::util::BufferInitDescriptor {
+                label: None,
+                contents: bytemuck::cast_slice(&[
+                    Vertex{position: [-1.0, 1.0, 0.0], tex_coords: [0.0, 0.0]},
+                    Vertex{position: [-1.0, -1.0, 0.0], tex_coords: [0.0, 1.0]},
+                    Vertex{position: [1.0, -1.0, 0.0], tex_coords: [1.0, 1.0]},
+
+                    Vertex{position: [-1.0, 1.0, 0.0], tex_coords: [0.0, 0.0]},
+                    Vertex{position: [1.0, -1.0, 0.0], tex_coords: [1.0, 1.0]},
+                    Vertex{position: [1.0, 1.0, 0.0], tex_coords: [1.0, 0.0]},
+
+                ]),
+                usage: wgpu::BufferUsage::VERTEX,
+            }
+        );
+
+        Ok(Self {texture, view: texture_view, sampler: texture_sampler, bind_group: Some(bind_group), vertex_buffer: Some(vertex_buffer) })
     }
 
     pub fn load<P: AsRef<Path>>(
         device: &wgpu::Device,
         queue: &wgpu::Queue,
         path: P,
+        layout: &wgpu::BindGroupLayout
     ) -> Result<Self> {
         let path_copy = path.as_ref().to_path_buf();
         let label = path_copy.to_str();
 
         let img = image::open(path)?;
-        Self::from_image(device, queue, &img, label)
+        Self::from_image(device, queue, &img, label, layout)
     }
+
+    // pub fn draw(&mut self, )
 }
+
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub struct Vertex {
+    pub position: [f32; 3],
+    pub tex_coords: [f32; 2]
+}
+unsafe impl bytemuck::Pod for Vertex{}
+unsafe impl bytemuck::Zeroable for Vertex{}

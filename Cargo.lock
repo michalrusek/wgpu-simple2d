@@ -1773,6 +1773,7 @@ name = "wgpu-simple2d"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "bytemuck",
  "fs_extra",
  "futures",
  "glob",

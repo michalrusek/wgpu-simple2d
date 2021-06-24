@@ -18,13 +18,24 @@ impl Game {
         // Initialize components and shit here?
         let new_id = self.add_entity();
         self.add_component_to_entity(new_id, Name { name: "sss" });
+
+        let the_only_texture_i_have = renderer.register_texture("res/test.png");
         
         let another_id = self.add_entity();
-        self.add_component_to_entity(another_id, Sprite { 
-            texture_id: renderer.register_texture("res/test.png"),
+        self.add_component_to_entity(another_id, Sprite {
+            texture_id: the_only_texture_i_have,
             render: true,
-            p1: (100. / self.target_resolution[0] as f32, 100. / self.target_resolution[1] as f32)
+            p1: (100. / self.target_resolution[0] as f32, 100. / self.target_resolution[1] as f32),
+            p2: (356. / self.target_resolution[0] as f32, 356. / self.target_resolution[1] as f32),
         });
+        
+        let some_more_id = self.add_entity();
+        self.add_component_to_entity(some_more_id, Sprite {
+            texture_id: the_only_texture_i_have,
+            render: true,
+            p1: (500. / self.target_resolution[0] as f32, 120. / self.target_resolution[1] as f32),
+            p2: (756. / self.target_resolution[0] as f32, 376. / self.target_resolution[1] as f32),
+        })
     }
 
     pub fn update(&mut self, time_passed: u128) {
@@ -47,7 +58,9 @@ impl Game {
         for sprite_opt in sprite_iter {
             if let Some(sprite) = sprite_opt {
                 if sprite.render {
-                    to_return.push(Renderable{ p1: [sprite.p1.0, sprite.p1.1], p2: [0., 0.], texture_id: sprite.texture_id, use_texture_size: true });
+                    let (x1, y1) = sprite.p1;
+                    let (x2, y2) = sprite.p2;
+                    to_return.push(Renderable{ p1: [x1, y1], p2: [x2, y2], texture_id: sprite.texture_id, use_texture_size: false });
                 }
             }
         }

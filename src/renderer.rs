@@ -146,8 +146,6 @@ impl Renderer {
             })
         };
 
-        let some_texture = Texture::load(&device, &queue, "res/test.png", &texture_bind_group_layout).unwrap();
-
         Self { 
             size, 
             surface, 
@@ -266,10 +264,10 @@ impl Renderer {
         self.depth_texture = Texture::create_depth_texture(&self.device, &self.sc_desc, "depth_texture");
         self.swap_chain = self.device.create_swap_chain(&self.surface, &self.sc_desc);
     }
-    pub fn register_texture(&mut self, texture_path: &str) -> u32 {
+    pub fn register_texture(&mut self, texture_path: &str) -> usize {
         if let Ok(texture) = Texture::load(&self.device, &self.queue, texture_path, &self.texture_bind_group_layout) {
             self.textures.push(texture);
-            (self.textures.len() - 1) as u32
+            self.textures.len() - 1
         } else {
             panic!("Couldn't register texture: ".to_string() + &texture_path.to_string());
         }        
@@ -277,7 +275,7 @@ impl Renderer {
 }
 
 pub struct Renderable {
-    pub texture_id: u32,
+    pub texture_id: usize,
     pub p1: [f32; 2],
     pub p2: [f32; 2],
     pub use_texture_size: bool,

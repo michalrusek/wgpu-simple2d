@@ -35,7 +35,7 @@ impl Game {
             render: true,
             p1: (500. / self.target_resolution[0] as f32, 120. / self.target_resolution[1] as f32),
             p2: (756. / self.target_resolution[0] as f32, 376. / self.target_resolution[1] as f32),
-        })
+        });
     }
 
     pub fn update(&mut self, time_passed: u128) {

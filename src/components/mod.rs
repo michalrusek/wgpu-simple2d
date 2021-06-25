@@ -9,3 +9,7 @@ pub struct Sprite {
     pub p2: (f32, f32),
     pub z: u32
 }
+
+pub struct Health {
+    pub health: u32
+}

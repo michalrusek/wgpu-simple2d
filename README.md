@@ -4,6 +4,7 @@
 4. Deno for scripts maybe?
 5. Some scene manager above ECS?
 6. HOW TO RENDER RESOLUTIONS OTHER THAN 16:9??
+7. Tilesets rendering?
 
 # Plan?
 - It's a platformer with one level

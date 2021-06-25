@@ -1,9 +1,11 @@
 use crate::renderer::*;
 use crate::components::*;
+use crate::systems::health::*;
 use std::cell::{RefCell, RefMut};
 
 pub struct Game {
     target_resolution: [u32; 2],
+    player_index: usize,
     entity_count: usize,
     component_vectors: Vec<Box<dyn ComponentsVector>> // Vector containing other vectors - each vector here is of a component type and has components of that type;
 }
@@ -11,42 +13,66 @@ pub struct Game {
 impl Game {
     pub fn new(target_resolution: [u32; 2]) -> Self {
 
-        Self {target_resolution, entity_count: 0, component_vectors: Vec::new()}
+        Self {target_resolution, entity_count: 0, component_vectors: Vec::new(), player_index: 0}
     }
 
     pub fn init(&mut self, renderer: &mut Renderer) {
-        // Initialize components and shit here?
-        let new_id = self.add_entity();
-        self.add_component_to_entity(new_id, Name { name: "sss" });
+        // Initialize components and stuff here
 
-        let the_only_texture_i_have = renderer.register_texture("res/test.png");
-        
-        let another_id = self.add_entity();
-        self.add_component_to_entity(another_id, Sprite {
-            texture_id: the_only_texture_i_have,
-            render: true,
-            p1: (100. / self.target_resolution[0] as f32, 100. / self.target_resolution[1] as f32),
-            p2: (356. / self.target_resolution[0] as f32, 356. / self.target_resolution[1] as f32),
-            z: 0,
-        });
-        
-        let some_more_id = self.add_entity();
-        self.add_component_to_entity(some_more_id, Sprite {
-            texture_id: the_only_texture_i_have,
-            render: true,
-            p1: (500. / self.target_resolution[0] as f32, 120. / self.target_resolution[1] as f32),
-            p2: (756. / self.target_resolution[0] as f32, 376. / self.target_resolution[1] as f32),
-            z: 1
-        });
+        // Load player
+        {   
+            let player_texture = renderer.register_texture("res/sillyboi.png");
+            self.player_index = self.add_entity();
+            self.add_component_to_entity(self.player_index, Sprite {
+                texture_id: player_texture,
+                render: true,
+                p1: (100. / self.target_resolution[0] as f32, 100. / self.target_resolution[1] as f32),
+                p2: (132. / self.target_resolution[0] as f32, 132. / self.target_resolution[1] as f32),
+                z: 1000,
+            });
+            self.add_component_to_entity(self.player_index, Name {name: "silly boi"});
+        }
+
+        // Load terrain
+        {   
+            let terrain_texture_index = renderer.register_texture("res/platformthing.png");
+            {
+                let terrain_index = self.add_entity();
+                self.add_component_to_entity(terrain_index, Sprite {
+                    texture_id: terrain_texture_index,
+                    render: true,
+                    p1: (100. / self.target_resolution[0] as f32, 132. / self.target_resolution[1] as f32),
+                    p2: (148. / self.target_resolution[0] as f32, 180. / self.target_resolution[1] as f32),
+                    z: 0,
+                });
+            }
+            {
+                let terrain_index = self.add_entity();
+                self.add_component_to_entity(terrain_index, Sprite {
+                    texture_id: terrain_texture_index,
+                    render: true,
+                    p1: (180. / self.target_resolution[0] as f32, 132. / self.target_resolution[1] as f32),
+                    p2: (228. / self.target_resolution[0] as f32, 180. / self.target_resolution[1] as f32),
+                    z: 0,
+                });
+            }
+        }
     }
 
     pub fn update(&mut self, time_passed: u128) {
         // LEFT AS AN EXAMPLE HERE ON HOW TO ITERATE AND SHIT
-        if false {
-            let mut names = self.borrow_component_vector_mut::<Name>().unwrap();
-            let iter = names.iter_mut().filter_map(|name| Some(name.as_mut()?));
-            for name in iter {
-                println!("{:?}", name.name);
+        // if false {
+        //     let mut names = self.borrow_component_vector_mut::<Name>().unwrap();
+        //     let iter = names.iter_mut().filter_map(|name| Some(name.as_mut()?));
+        //     for name in iter {
+        //         println!("{:?}", name.name);
+        //     }
+        // }
+
+        // Health system
+        {
+            if let Some(mut health_components) = self.borrow_component_vector_mut::<Health>() {
+                health_system(&mut health_components);
             }
         }
     }

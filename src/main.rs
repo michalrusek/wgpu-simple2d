@@ -2,6 +2,7 @@ mod renderer;
 mod texture;
 mod game;
 mod components;
+mod systems;
 use game::Game;
 use renderer::*;
 

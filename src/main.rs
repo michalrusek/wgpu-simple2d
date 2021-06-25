@@ -28,6 +28,7 @@ fn main() {
     let mut renderer = futures::executor::block_on(Renderer::new(&window, winit::dpi::PhysicalSize::new(DESIRED_RENDER_SIZE[0], DESIRED_RENDER_SIZE[1])));
     let mut game = Game::new(DESIRED_RENDER_SIZE);
     game.init(&mut renderer);
+    
     let mut last_time = std::time::Instant::now();
 
     event_loop.run(move |event, _, control_flow| {
@@ -56,6 +57,7 @@ fn main() {
                             renderer.resize(**new_inner_size);
                         }
                         WindowEvent::KeyboardInput {input, .. } => {
+                            game.process_keyboard_input(input);
                             // TODO: REMOVE LATER AND LET THE STATE HANDLE ALL INPUT
                             match input {
                                 KeyboardInput {

@@ -1,10 +1,12 @@
 use crate::renderer::*;
 use crate::components::*;
 use crate::systems::health::*;
+use crate::systems::player_movement::*;
 use std::cell::{RefCell, RefMut};
 
 pub struct Game {
     target_resolution: [u32; 2],
+    keyboard_input_queue: Vec<winit::event::KeyboardInput>,
     player_index: usize,
     entity_count: usize,
     component_vectors: Vec<Box<dyn ComponentsVector>> // Vector containing other vectors - each vector here is of a component type and has components of that type;
@@ -13,7 +15,7 @@ pub struct Game {
 impl Game {
     pub fn new(target_resolution: [u32; 2]) -> Self {
 
-        Self {target_resolution, entity_count: 0, component_vectors: Vec::new(), player_index: 0}
+        Self {target_resolution, entity_count: 0, component_vectors: Vec::new(), player_index: 0, keyboard_input_queue: Vec::new()}
     }
 
     pub fn init(&mut self, renderer: &mut Renderer) {
@@ -75,6 +77,23 @@ impl Game {
                 health_system(&mut health_components);
             }
         }
+
+        // Player movement system
+        {
+            if let Some(mut sprite_components) = self.borrow_component_vector_mut::<Sprite>() {
+                player_movement_system(&mut sprite_components, self.player_index, &self.keyboard_input_queue);
+            }
+        }
+
+        // Clear up the keyboard input queue
+        {
+            self.keyboard_input_queue.clear();
+        }
+    }
+
+    pub fn process_keyboard_input(&mut self, input: &winit::event::KeyboardInput) {
+        // Save inputs probably - the inputs can come more than once during one frame and so it'd be good to defer handling them until update() is run
+        self.keyboard_input_queue.push(*input);
     }
 
     pub fn get_renderables(&self) -> Vec<Renderable> {
@@ -82,7 +101,7 @@ impl Game {
         let mut z_buffer: Vec<u32> = Vec::new(); // TODO: Could do Z-checks work on a GPU instead proly
 
         // Get all sprites
-        let mut sprites = self.borrow_component_vector_mut::<Sprite>().unwrap();
+        let sprites = self.borrow_component_vector_mut::<Sprite>().unwrap();
         let sprite_iter = sprites.iter().filter(|sprite| matches!(sprite, Some(sprite)));
         for sprite_opt in sprite_iter {
             if let Some(sprite) = sprite_opt {
@@ -96,7 +115,7 @@ impl Game {
                     } else {
                         // find the spot for the new thing
                         let mut new_index = to_return.len();
-                        for (i, renderable) in to_return.iter().enumerate() {
+                        for (i, _) in to_return.iter().enumerate() {
                             if z_buffer.get(i).unwrap() < &sprite.z {
                                 new_index = i;
                                 break;

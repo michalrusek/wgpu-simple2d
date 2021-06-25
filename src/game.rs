@@ -27,6 +27,7 @@ impl Game {
             render: true,
             p1: (100. / self.target_resolution[0] as f32, 100. / self.target_resolution[1] as f32),
             p2: (356. / self.target_resolution[0] as f32, 356. / self.target_resolution[1] as f32),
+            z: 0,
         });
         
         let some_more_id = self.add_entity();
@@ -35,6 +36,7 @@ impl Game {
             render: true,
             p1: (500. / self.target_resolution[0] as f32, 120. / self.target_resolution[1] as f32),
             p2: (756. / self.target_resolution[0] as f32, 376. / self.target_resolution[1] as f32),
+            z: 1
         });
     }
 
@@ -51,6 +53,7 @@ impl Game {
 
     pub fn get_renderables(&self) -> Vec<Renderable> {
         let mut to_return: Vec<Renderable> = Vec::new();
+        let mut z_buffer: Vec<u32> = Vec::new(); // TODO: Could do Z-checks work on a GPU instead proly
 
         // Get all sprites
         let mut sprites = self.borrow_component_vector_mut::<Sprite>().unwrap();
@@ -60,7 +63,22 @@ impl Game {
                 if sprite.render {
                     let (x1, y1) = sprite.p1;
                     let (x2, y2) = sprite.p2;
-                    to_return.push(Renderable{ p1: [x1, y1], p2: [x2, y2], texture_id: sprite.texture_id, use_texture_size: false });
+                    let new_renderable = Renderable{ p1: [x1, y1], p2: [x2, y2], texture_id: sprite.texture_id, use_texture_size: false };
+                    if to_return.is_empty() {
+                        to_return.push(new_renderable);
+                        z_buffer.push(sprite.z);
+                    } else {
+                        // find the spot for the new thing
+                        let mut new_index = to_return.len();
+                        for (i, renderable) in to_return.iter().enumerate() {
+                            if z_buffer.get(i).unwrap() < &sprite.z {
+                                new_index = i;
+                                break;
+                            }
+                        }
+                        to_return.insert(new_index, new_renderable);
+                        z_buffer.insert(new_index, sprite.z);
+                    }
                 }
             }
         }

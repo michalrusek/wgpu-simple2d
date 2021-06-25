@@ -7,4 +7,5 @@ pub struct Sprite {
     pub render: bool,
     pub p1: (f32, f32),
     pub p2: (f32, f32),
+    pub z: u32
 }

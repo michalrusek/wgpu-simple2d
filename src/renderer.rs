@@ -175,9 +175,10 @@ impl Renderer {
                 if renderable.texture_id as usize > (self.textures.len() - 1) {
                     println!("Wrong texture id {:?}. Can't create buffer", renderable.texture_id);
                 } else {
+                    // TODO: HOW TO RENDER RESOLUTIONS OTHER THAN 16:9??
                     // assume target resolution of 1280x720 keeping the horizontal ratio steady
-                    let horiz_ratio = self.size.width as f32 / self.desired_res.width as f32;
-                    let vert_ration = self.size.height as f32 / self.desired_res.height as f32;
+                    let horiz_ratio = 1.; //self.size.width as f32 / self.desired_res.width as f32;
+                    let vert_ration = 1.; //self.size.height as f32 / self.desired_res.height as f32;
                     
                     // calculate points based on the ratio and stuff
                     let p1x = renderable.p1[0] * vert_ration * 2.0 - 1.0;

@@ -3,7 +3,7 @@
 3. How is the animation managed profesionally?
 4. Deno for scripts maybe?
 5. Some scene manager above ECS?
-
+6. HOW TO RENDER RESOLUTIONS OTHER THAN 16:9??
 
 # Plan?
 - It's a platformer with one level

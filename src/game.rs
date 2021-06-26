@@ -3,6 +3,8 @@ use crate::components::*;
 use crate::systems::health::*;
 use crate::systems::player_movement::*;
 use crate::systems::animation::*;
+use crate::systems::gravity::*;
+use crate::systems::velocity::*;
 use std::cell::{RefCell, RefMut};
 
 pub struct Game {
@@ -37,22 +39,24 @@ impl Game {
                     Sprite {
                         texture_id: player_texture,
                         render: true,
-                        width_normalized: 32. / self.target_resolution[0] as f32,
-                        height_normalized: 32. / self.target_resolution[1] as f32,
-                        z: 1000,
+                        width_normalized: 64. / self.target_resolution[0] as f32,
+                        height_normalized: 64. / self.target_resolution[1] as f32,
+                        z: 0,
                     },
                     Sprite {
                         texture_id: player_texture_2,
                         render: true,
-                        width_normalized: 32. / self.target_resolution[0] as f32,
-                        height_normalized: 32. / self.target_resolution[1] as f32,
-                        z: 1000,
+                        width_normalized: 64. / self.target_resolution[0] as f32,
+                        height_normalized: 64. / self.target_resolution[1] as f32,
+                        z: 0,
                     },
                 ]
             });
             self.add_component_to_entity(self.player_index, Name {name: "silly boi"});
             self.add_component_to_entity(self.player_index, Health {health: 100});
             self.add_component_to_entity(self.player_index, Position {x: 100. / self.target_resolution[0] as f32, y: 100. / self.target_resolution[1] as f32});
+            self.add_component_to_entity(self.player_index, Gravity {affected_by_gravity: true});
+            self.add_component_to_entity(self.player_index, Velocity {vel_x: 0., vel_y: 0.});
         }
 
         // Load terrain
@@ -63,22 +67,22 @@ impl Game {
                 self.add_component_to_entity(terrain_index, Sprite {
                     texture_id: terrain_texture_index,
                     render: true,
-                    width_normalized: 48. / self.target_resolution[0] as f32,
-                    height_normalized: 48. / self.target_resolution[1] as f32,
-                    z: 0,
+                    width_normalized: 96. / self.target_resolution[0] as f32,
+                    height_normalized: 96. / self.target_resolution[1] as f32,
+                    z: 1,
                 });
-                self.add_component_to_entity(terrain_index, Position {x: 100. / self.target_resolution[0] as f32, y: 132. / self.target_resolution[1] as f32});
+                self.add_component_to_entity(terrain_index, Position {x: 100. / self.target_resolution[0] as f32, y: 164. / self.target_resolution[1] as f32});
             }
             {
                 let terrain_index = self.add_entity();
                 self.add_component_to_entity(terrain_index, Sprite {
                     texture_id: terrain_texture_index,
                     render: true,
-                    width_normalized: 48. / self.target_resolution[0] as f32,
-                    height_normalized: 48. / self.target_resolution[1] as f32,
-                    z: 0,
+                    width_normalized: 96. / self.target_resolution[0] as f32,
+                    height_normalized: 96. / self.target_resolution[1] as f32,
+                    z: 1,
                 });
-                self.add_component_to_entity(terrain_index, Position {x: 148. / self.target_resolution[0] as f32, y: 132. / self.target_resolution[1] as f32});
+                self.add_component_to_entity(terrain_index, Position {x: 196. / self.target_resolution[0] as f32, y: 164. / self.target_resolution[1] as f32});
             }
         }
     }
@@ -102,8 +106,8 @@ impl Game {
 
         // Player movement system
         {
-            if let Some(mut position_components) = self.borrow_component_vector_mut::<Position>() {
-                player_movement_system(&mut position_components, self.player_index, &self.keyboard_input_queue);
+            if let Some(mut velocity_components) = self.borrow_component_vector_mut::<Velocity>() {
+                player_movement_system(&mut velocity_components, self.player_index, &self.keyboard_input_queue);
             }
         }
 
@@ -111,6 +115,32 @@ impl Game {
         {
             if let Some(mut animation_components) = self.borrow_component_vector_mut::<Animation>() {
                 animation_system(&mut animation_components, time_passed);
+            }
+        }
+
+        // Gravity system
+        {
+            if let (
+                Some(mut gravity_components),
+                Some(mut velocity_components)
+            ) = (
+                 self.borrow_component_vector_mut::<Gravity>(),
+                 self.borrow_component_vector_mut::<Velocity>()
+            ) {
+                gravity_system(&mut gravity_components, &mut velocity_components, time_passed);
+            }
+        }
+
+        // Movement system
+        {
+            if let (
+                Some(mut velocity_components), 
+                Some(mut position_components)
+            ) = (
+                self.borrow_component_vector_mut::<Velocity>(), 
+                self.borrow_component_vector_mut::<Position>()
+            ) {
+                velocity_system(&mut velocity_components, &mut position_components, time_passed);
             }
         }
 

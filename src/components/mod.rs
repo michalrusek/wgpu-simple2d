@@ -27,3 +27,12 @@ pub struct Position {
     pub x: f32,
     pub y: f32,
 }
+
+pub struct Gravity {
+    pub affected_by_gravity: bool
+}
+
+pub struct Velocity {
+    pub vel_x: f32,
+    pub vel_y: f32,
+}

@@ -2,6 +2,7 @@ use crate::renderer::*;
 use crate::components::*;
 use crate::systems::health::*;
 use crate::systems::player_movement::*;
+use crate::systems::animation::*;
 use std::cell::{RefCell, RefMut};
 
 pub struct Game {
@@ -24,15 +25,34 @@ impl Game {
         // Load player
         {   
             let player_texture = renderer.register_texture("res/sillyboi.png");
+            let player_texture_2 = renderer.register_texture("res/sillyboi2.png");
             self.player_index = self.add_entity();
-            self.add_component_to_entity(self.player_index, Sprite {
-                texture_id: player_texture,
-                render: true,
-                p1: (100. / self.target_resolution[0] as f32, 100. / self.target_resolution[1] as f32),
-                p2: (132. / self.target_resolution[0] as f32, 132. / self.target_resolution[1] as f32),
-                z: 1000,
+            self.add_component_to_entity(self.player_index, Animation {
+                animation_name: "idle", 
+                time_per_frame_ms: 250,
+                time_since_last_frame: 0,
+                current_frame_index: 1,
+                running: true,
+                sprites: vec![
+                    Sprite {
+                        texture_id: player_texture,
+                        render: true,
+                        width_normalized: 32. / self.target_resolution[0] as f32,
+                        height_normalized: 32. / self.target_resolution[1] as f32,
+                        z: 1000,
+                    },
+                    Sprite {
+                        texture_id: player_texture_2,
+                        render: true,
+                        width_normalized: 32. / self.target_resolution[0] as f32,
+                        height_normalized: 32. / self.target_resolution[1] as f32,
+                        z: 1000,
+                    },
+                ]
             });
             self.add_component_to_entity(self.player_index, Name {name: "silly boi"});
+            self.add_component_to_entity(self.player_index, Health {health: 100});
+            self.add_component_to_entity(self.player_index, Position {x: 100. / self.target_resolution[0] as f32, y: 100. / self.target_resolution[1] as f32});
         }
 
         // Load terrain
@@ -43,20 +63,22 @@ impl Game {
                 self.add_component_to_entity(terrain_index, Sprite {
                     texture_id: terrain_texture_index,
                     render: true,
-                    p1: (100. / self.target_resolution[0] as f32, 132. / self.target_resolution[1] as f32),
-                    p2: (148. / self.target_resolution[0] as f32, 180. / self.target_resolution[1] as f32),
+                    width_normalized: 48. / self.target_resolution[0] as f32,
+                    height_normalized: 48. / self.target_resolution[1] as f32,
                     z: 0,
                 });
+                self.add_component_to_entity(terrain_index, Position {x: 100. / self.target_resolution[0] as f32, y: 132. / self.target_resolution[1] as f32});
             }
             {
                 let terrain_index = self.add_entity();
                 self.add_component_to_entity(terrain_index, Sprite {
                     texture_id: terrain_texture_index,
                     render: true,
-                    p1: (180. / self.target_resolution[0] as f32, 132. / self.target_resolution[1] as f32),
-                    p2: (228. / self.target_resolution[0] as f32, 180. / self.target_resolution[1] as f32),
+                    width_normalized: 48. / self.target_resolution[0] as f32,
+                    height_normalized: 48. / self.target_resolution[1] as f32,
                     z: 0,
                 });
+                self.add_component_to_entity(terrain_index, Position {x: 148. / self.target_resolution[0] as f32, y: 132. / self.target_resolution[1] as f32});
             }
         }
     }
@@ -80,8 +102,15 @@ impl Game {
 
         // Player movement system
         {
-            if let Some(mut sprite_components) = self.borrow_component_vector_mut::<Sprite>() {
-                player_movement_system(&mut sprite_components, self.player_index, &self.keyboard_input_queue);
+            if let Some(mut position_components) = self.borrow_component_vector_mut::<Position>() {
+                player_movement_system(&mut position_components, self.player_index, &self.keyboard_input_queue);
+            }
+        }
+
+        // Animation system
+        {
+            if let Some(mut animation_components) = self.borrow_component_vector_mut::<Animation>() {
+                animation_system(&mut animation_components, time_passed);
             }
         }
 
@@ -100,31 +129,50 @@ impl Game {
         let mut to_return: Vec<Renderable> = Vec::new();
         let mut z_buffer: Vec<u32> = Vec::new(); // TODO: Could do Z-checks work on a GPU instead proly
 
-        // Get all sprites
-        let sprites = self.borrow_component_vector_mut::<Sprite>().unwrap();
-        let sprite_iter = sprites.iter().filter(|sprite| matches!(sprite, Some(sprite)));
-        for sprite_opt in sprite_iter {
-            if let Some(sprite) = sprite_opt {
-                if sprite.render {
-                    let (x1, y1) = sprite.p1;
-                    let (x2, y2) = sprite.p2;
-                    let new_renderable = Renderable{ p1: [x1, y1], p2: [x2, y2], texture_id: sprite.texture_id, use_texture_size: false };
-                    if to_return.is_empty() {
-                        to_return.push(new_renderable);
-                        z_buffer.push(sprite.z);
-                    } else {
-                        // find the spot for the new thing
-                        let mut new_index = to_return.len();
-                        for (i, _) in to_return.iter().enumerate() {
-                            if z_buffer.get(i).unwrap() < &sprite.z {
-                                new_index = i;
-                                break;
-                            }
+        // Sprite rendering function
+        let mut render_sprite = |position: &Position, sprite: &Sprite| {
+            if sprite.render {
+                let (x1, y1) = (position.x, position.y);
+                let (x2, y2) = (position.x + sprite.width_normalized, position.y + sprite.height_normalized);
+                let new_renderable = Renderable{ p1: [x1, y1], p2: [x2, y2], texture_id: sprite.texture_id, use_texture_size: false };
+                if to_return.is_empty() {
+                    to_return.push(new_renderable);
+                    z_buffer.push(sprite.z);
+                } else {
+                    // find the spot for the new thing
+                    let mut new_index = to_return.len();
+                    for (i, _) in to_return.iter().enumerate() {
+                        if z_buffer.get(i).unwrap() < &sprite.z {
+                            new_index = i;
+                            break;
                         }
-                        to_return.insert(new_index, new_renderable);
-                        z_buffer.insert(new_index, sprite.z);
                     }
+                    to_return.insert(new_index, new_renderable);
+                    z_buffer.insert(new_index, sprite.z);
                 }
+            }
+        };
+
+        // Render simple sprites
+        {
+            let sprites = self.borrow_component_vector_mut::<Sprite>().unwrap();
+            let positions = self.borrow_component_vector_mut::<Position>().unwrap();
+            let zip = positions.iter().zip(sprites.iter());
+            let iter = zip.filter_map(|(position, sprite)| Some((position.as_ref()?, sprite.as_ref()?)));
+            for (position, sprite) in iter {
+                render_sprite(&position, &sprite);
+            }
+        }
+
+        // Render animations
+        {
+            let animations = self.borrow_component_vector_mut::<Animation>().unwrap();
+            let positions = self.borrow_component_vector_mut::<Position>().unwrap();
+            let zip = positions.iter().zip(animations.iter());
+            let iter = zip.filter_map(|(position, animation)| Some((position.as_ref()?, animation.as_ref()?)));
+            for (position, animation) in iter {
+                let sprite = animation.sprites.get(animation.current_frame_index).unwrap();
+                render_sprite(&position, &sprite);
             }
         }
 

@@ -5,6 +5,7 @@ use crate::systems::player_movement::*;
 use crate::systems::animation::*;
 use crate::systems::gravity::*;
 use crate::systems::velocity::*;
+use crate::systems::collision::*;
 use std::cell::{RefCell, RefMut};
 
 pub struct Game {
@@ -54,9 +55,11 @@ impl Game {
             });
             self.add_component_to_entity(self.player_index, Name {name: "silly boi"});
             self.add_component_to_entity(self.player_index, Health {health: 100});
-            self.add_component_to_entity(self.player_index, Position {x: 100. / self.target_resolution[0] as f32, y: 100. / self.target_resolution[1] as f32});
+            self.add_component_to_entity(self.player_index, Position {x: 100. / self.target_resolution[0] as f32, y: 0. / self.target_resolution[1] as f32});
             self.add_component_to_entity(self.player_index, Gravity {affected_by_gravity: true});
             self.add_component_to_entity(self.player_index, Velocity {vel_x: 0., vel_y: 0.});
+            self.add_component_to_entity(self.player_index, RigidBody {width: 64. / self.target_resolution[0] as f32, height: 64. / self.target_resolution[1] as f32});
+            self.add_component_to_entity(self.player_index, CollisionList {list: Vec::new()});
         }
 
         // Load terrain
@@ -72,6 +75,7 @@ impl Game {
                     z: 1,
                 });
                 self.add_component_to_entity(terrain_index, Position {x: 100. / self.target_resolution[0] as f32, y: 164. / self.target_resolution[1] as f32});
+                self.add_component_to_entity(terrain_index, RigidBody {width: 96. / self.target_resolution[0] as f32, height: 96. / self.target_resolution[1] as f32});
             }
             {
                 let terrain_index = self.add_entity();
@@ -83,6 +87,7 @@ impl Game {
                     z: 1,
                 });
                 self.add_component_to_entity(terrain_index, Position {x: 196. / self.target_resolution[0] as f32, y: 164. / self.target_resolution[1] as f32});
+                self.add_component_to_entity(terrain_index, RigidBody {width: 96. / self.target_resolution[0] as f32, height: 96. / self.target_resolution[1] as f32});
             }
         }
     }
@@ -141,6 +146,26 @@ impl Game {
                 self.borrow_component_vector_mut::<Position>()
             ) {
                 velocity_system(&mut velocity_components, &mut position_components, time_passed);
+            }
+        }
+
+        // Collision system
+        {
+            if let (
+                Some(mut position_components),
+                Some(mut rigid_body_components),
+                Some(mut collision_list_components),
+            ) = (
+                self.borrow_component_vector_mut::<Position>(),
+                self.borrow_component_vector_mut::<RigidBody>(),
+                self.borrow_component_vector_mut::<CollisionList>(),
+            ) {
+                collision_system(
+                    &mut position_components, 
+                    &mut rigid_body_components,
+                    &mut collision_list_components,
+                    time_passed,
+                );
             }
         }
 

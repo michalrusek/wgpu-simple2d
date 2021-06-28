@@ -36,3 +36,12 @@ pub struct Velocity {
     pub vel_x: f32,
     pub vel_y: f32,
 }
+
+pub struct RigidBody {
+    pub width: f32,
+    pub height: f32,
+}
+
+pub struct CollisionList {
+    pub list: Vec<usize>
+}

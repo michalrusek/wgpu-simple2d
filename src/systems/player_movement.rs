@@ -1,7 +1,7 @@
 use std::cell::{RefCell, RefMut};
 use crate::components::*;
 
-const PLAYER_SPEED: f32 = 0.01;
+const PLAYER_SPEED: f32 = 0.1;
 
 pub fn player_movement_system(
     mut velocity_component_vector: &mut RefMut<Vec<Option<Velocity>>>, 

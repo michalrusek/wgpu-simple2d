@@ -11,7 +11,6 @@ pub fn collision_system(
     {
         let iter = collision_list_component_vector.iter_mut().filter_map(|collision_list| Some(collision_list.as_mut()?));
         for collision_list in iter {
-            println!("Cleared {:?} collisions", collision_list.list.len());
             collision_list.list.clear();
         }
     }
@@ -34,7 +33,6 @@ pub fn collision_system(
             // Save collision to collision list of the object - only really do the test if the object has a collision list (wants to react to collisions)
             let mut collision_list = collision_list_component_vector.get_mut(i_a).unwrap();
             if let Some(collision_list) = collision_list {
-                // collision_list.list.push(0);
                 let iter_b = {
                     let rigid_body_iter_b = rigid_body_component_vector.iter();
                     let position_iter_b = position_component_vector.iter();
@@ -48,7 +46,28 @@ pub fn collision_system(
                         let max_y_b = position_b.y + rigid_body_b.height;
                         if min_x_a < max_x_b && max_x_a > min_x_b && min_y_a < max_y_b && max_y_a > min_y_b {
                             // Collision hapnt - figure out which _a's side is colliding with _b?
-                            println!("Collides: {:?} with {:?}", i_a, i_b);
+                            // println!("Collides: {:?} with {:?}", i_a, i_b);
+                            let x_diff = min_x_b - min_x_a;
+                            let y_diff = min_y_b - min_y_a;
+                            let mut side: CollisionSide = CollisionSide::BOTTOM;
+                            if x_diff.abs() > y_diff.abs() {
+                                if x_diff > 0. {
+                                    // RIGHT SIDE
+                                    side = CollisionSide::RIGHT;
+                                } else {
+                                    // LEFT SIDE
+                                    side = CollisionSide::LEFT;
+                                }
+                            } else {
+                                if y_diff > 0. {
+                                    // BOTTOM
+                                    side = CollisionSide::BOTTOM;
+                                } else {
+                                    // TOP
+                                    side = CollisionSide::TOP;
+                                }
+                            }
+                            collision_list.list.push(Collision {collided_with: i_b, side, x_diff: x_diff.abs(), y_diff: y_diff.abs()});
                         }
                     }
                 }

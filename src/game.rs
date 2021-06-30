@@ -4,8 +4,9 @@ use crate::systems::health::*;
 use crate::systems::player_movement::*;
 use crate::systems::animation::*;
 use crate::systems::gravity::*;
-use crate::systems::velocity::*;
+use crate::systems::physics::*;
 use crate::systems::collision::*;
+use crate::systems::clipping::*;
 use std::cell::{RefCell, RefMut};
 
 pub struct Game {
@@ -76,6 +77,7 @@ impl Game {
                 });
                 self.add_component_to_entity(terrain_index, Position {x: 100. / self.target_resolution[0] as f32, y: 164. / self.target_resolution[1] as f32});
                 self.add_component_to_entity(terrain_index, RigidBody {width: 96. / self.target_resolution[0] as f32, height: 96. / self.target_resolution[1] as f32});
+                self.add_component_to_entity(terrain_index, BlocksMovement {blocks: true});
             }
             {
                 let terrain_index = self.add_entity();
@@ -88,6 +90,33 @@ impl Game {
                 });
                 self.add_component_to_entity(terrain_index, Position {x: 196. / self.target_resolution[0] as f32, y: 164. / self.target_resolution[1] as f32});
                 self.add_component_to_entity(terrain_index, RigidBody {width: 96. / self.target_resolution[0] as f32, height: 96. / self.target_resolution[1] as f32});
+                self.add_component_to_entity(terrain_index, BlocksMovement {blocks: true});
+            }
+            {
+                let terrain_index = self.add_entity();
+                self.add_component_to_entity(terrain_index, Sprite {
+                    texture_id: terrain_texture_index,
+                    render: true,
+                    width_normalized: 96. / self.target_resolution[0] as f32,
+                    height_normalized: 96. / self.target_resolution[1] as f32,
+                    z: 1,
+                });
+                self.add_component_to_entity(terrain_index, Position {x: 196. / self.target_resolution[0] as f32, y: 68. / self.target_resolution[1] as f32});
+                self.add_component_to_entity(terrain_index, RigidBody {width: 96. / self.target_resolution[0] as f32, height: 96. / self.target_resolution[1] as f32});
+                self.add_component_to_entity(terrain_index, BlocksMovement {blocks: true});
+            }
+            {
+                let terrain_index = self.add_entity();
+                self.add_component_to_entity(terrain_index, Sprite {
+                    texture_id: terrain_texture_index,
+                    render: true,
+                    width_normalized: 96. / self.target_resolution[0] as f32,
+                    height_normalized: 96. / self.target_resolution[1] as f32,
+                    z: 1,
+                });
+                self.add_component_to_entity(terrain_index, Position {x: 0. / self.target_resolution[0] as f32, y: 68. / self.target_resolution[1] as f32});
+                self.add_component_to_entity(terrain_index, RigidBody {width: 96. / self.target_resolution[0] as f32, height: 96. / self.target_resolution[1] as f32});
+                self.add_component_to_entity(terrain_index, BlocksMovement {blocks: true});
             }
         }
     }
@@ -140,12 +169,16 @@ impl Game {
         {
             if let (
                 Some(mut velocity_components), 
-                Some(mut position_components)
+                Some(mut position_components),
+                Some(mut rigid_body_components),
+                Some(mut blocks_movement),
             ) = (
                 self.borrow_component_vector_mut::<Velocity>(), 
-                self.borrow_component_vector_mut::<Position>()
+                self.borrow_component_vector_mut::<Position>(),
+                self.borrow_component_vector_mut::<RigidBody>(),
+                self.borrow_component_vector_mut::<BlocksMovement>(),
             ) {
-                velocity_system(&mut velocity_components, &mut position_components, time_passed);
+                physics_system(&mut velocity_components, &mut position_components, &mut rigid_body_components, &mut blocks_movement, time_passed);
             }
         }
 
@@ -165,6 +198,25 @@ impl Game {
                     &mut rigid_body_components,
                     &mut collision_list_components,
                     time_passed,
+                );
+            }
+        }
+
+        // Clipping system
+        {
+            if let (
+                Some(mut position_components),
+                Some(mut rigid_body_components),
+                Some(mut collision_list_components),
+            ) = (
+                self.borrow_component_vector_mut::<Position>(),
+                self.borrow_component_vector_mut::<RigidBody>(),
+                self.borrow_component_vector_mut::<CollisionList>(),
+            ) {
+                clipping_system(
+                    &mut position_components, 
+                    &mut rigid_body_components,
+                    &mut collision_list_components,
                 );
             }
         }

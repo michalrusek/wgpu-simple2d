@@ -6,7 +6,7 @@ pub fn health_system(mut health_component_vector: &mut RefMut<Vec<Option<Health>
     for health in iterator {
         if health.health > 0 {
             health.health -= 1;
-            println!("new health: {:?}", health.health);
+            // println!("new health: {:?}", health.health);
         }
     }
 }

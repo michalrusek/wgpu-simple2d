@@ -43,5 +43,23 @@ pub struct RigidBody {
 }
 
 pub struct CollisionList {
-    pub list: Vec<usize>
+    pub list: Vec<Collision>
+}
+
+#[derive(Debug, PartialEq)]
+pub enum CollisionSide {
+    LEFT,
+    RIGHT,
+    TOP,
+    BOTTOM
+}
+pub struct Collision {
+    pub collided_with: usize,
+    pub side: CollisionSide,
+    pub x_diff: f32,
+    pub y_diff: f32,
+}
+
+pub struct BlocksMovement {
+    pub blocks: bool,
 }

@@ -1,7 +1,7 @@
 use std::cell::{RefCell, RefMut};
 use crate::components::*;
 
-const MAX_DOWNWARD_VELOCITY: f32 = 7.;
+const MAX_DOWNWARD_VELOCITY: f32 = 1.;
 const VELOCITY_GAIN_PER_MS: f32 = 5. / 1000.;
 
 pub fn gravity_system(

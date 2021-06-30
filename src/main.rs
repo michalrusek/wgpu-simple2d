@@ -22,6 +22,7 @@ fn main() {
     let window = WindowBuilder::new()
         .with_title("wgpu simple 2d thingy")
         .with_inner_size(winit::dpi::PhysicalSize::new(DESIRED_RENDER_SIZE[0], DESIRED_RENDER_SIZE[1]))
+        .with_resizable(false) // TODO: Remove once resizing is handled properly on the renderer
         .build(&event_loop)
         .unwrap();
     

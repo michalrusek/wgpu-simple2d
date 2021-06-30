@@ -63,3 +63,14 @@ pub struct Collision {
 pub struct BlocksMovement {
     pub blocks: bool,
 }
+
+pub struct PlayerState {
+    pub state: PlayerStateKind
+}
+
+pub enum PlayerStateKind {
+    Idle,
+    RunningLeft,
+    RunningRight,
+    Falling,
+}

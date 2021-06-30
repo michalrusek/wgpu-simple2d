@@ -61,12 +61,15 @@ impl Game {
             self.add_component_to_entity(self.player_index, Velocity {vel_x: 0., vel_y: 0.});
             self.add_component_to_entity(self.player_index, RigidBody {width: 64. / self.target_resolution[0] as f32, height: 64. / self.target_resolution[1] as f32});
             self.add_component_to_entity(self.player_index, CollisionList {list: Vec::new()});
+            self.add_component_to_entity(self.player_index, PlayerState{state: PlayerStateKind::Idle});
         }
 
         // Load terrain
         {   
             let terrain_texture_index = renderer.register_texture("res/platformthing.png");
-            {
+            let max_squares = self.target_resolution[0] / 96 + 1;
+            for square_n in 0..max_squares as usize {
+                let offset: f32 = 96. / self.target_resolution[0] as f32 * square_n as f32;
                 let terrain_index = self.add_entity();
                 self.add_component_to_entity(terrain_index, Sprite {
                     texture_id: terrain_texture_index,
@@ -75,10 +78,11 @@ impl Game {
                     height_normalized: 96. / self.target_resolution[1] as f32,
                     z: 1,
                 });
-                self.add_component_to_entity(terrain_index, Position {x: 100. / self.target_resolution[0] as f32, y: 164. / self.target_resolution[1] as f32});
+                self.add_component_to_entity(terrain_index, Position {x: offset, y: 164. / self.target_resolution[1] as f32});
                 self.add_component_to_entity(terrain_index, RigidBody {width: 96. / self.target_resolution[0] as f32, height: 96. / self.target_resolution[1] as f32});
                 self.add_component_to_entity(terrain_index, BlocksMovement {blocks: true});
             }
+
             {
                 let terrain_index = self.add_entity();
                 self.add_component_to_entity(terrain_index, Sprite {
@@ -88,20 +92,7 @@ impl Game {
                     height_normalized: 96. / self.target_resolution[1] as f32,
                     z: 1,
                 });
-                self.add_component_to_entity(terrain_index, Position {x: 196. / self.target_resolution[0] as f32, y: 164. / self.target_resolution[1] as f32});
-                self.add_component_to_entity(terrain_index, RigidBody {width: 96. / self.target_resolution[0] as f32, height: 96. / self.target_resolution[1] as f32});
-                self.add_component_to_entity(terrain_index, BlocksMovement {blocks: true});
-            }
-            {
-                let terrain_index = self.add_entity();
-                self.add_component_to_entity(terrain_index, Sprite {
-                    texture_id: terrain_texture_index,
-                    render: true,
-                    width_normalized: 96. / self.target_resolution[0] as f32,
-                    height_normalized: 96. / self.target_resolution[1] as f32,
-                    z: 1,
-                });
-                self.add_component_to_entity(terrain_index, Position {x: 196. / self.target_resolution[0] as f32, y: 68. / self.target_resolution[1] as f32});
+                self.add_component_to_entity(terrain_index, Position {x: (self.target_resolution[0] - 96) as f32 / self.target_resolution[0] as f32, y: 68. / self.target_resolution[1] as f32});
                 self.add_component_to_entity(terrain_index, RigidBody {width: 96. / self.target_resolution[0] as f32, height: 96. / self.target_resolution[1] as f32});
                 self.add_component_to_entity(terrain_index, BlocksMovement {blocks: true});
             }

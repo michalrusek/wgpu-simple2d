@@ -8,6 +8,7 @@ pub fn player_movement_system(
     player_index: usize, 
     keyboard_inputs_frame: &Vec<winit::event::KeyboardInput>
 ) {
+    // TODO: Do a proper state machine here instead
     if let Some(Some(velocity)) = velocity_component_vector.get_mut(player_index) {
         for keyb_input in keyboard_inputs_frame {
             match keyb_input {
@@ -16,7 +17,7 @@ pub fn player_movement_system(
                     virtual_keycode: Some(winit::event::VirtualKeyCode::W),
                     ..
                 } => {
-                    velocity.vel_y = -PLAYER_SPEED;
+                    velocity.vel_y = -PLAYER_SPEED * 20.;
                 },
                 winit::event::KeyboardInput {
                     state: winit::event::ElementState::Pressed, 

@@ -26,21 +26,34 @@ pub fn physics_system(
 
         // Collect info if we're accepting the X or Y change (or both)
         for (velocity, position, rigid_body, index) in iter {
-            let mut new_pos = Position {x: position.x, y: position.y};
-
+            
             // Try moving on X, check for collisions and record info
-            new_pos.x += velocity.vel_x * time_passed / 1000.;
-            let accept_x = !collides_with_another_rb(&new_pos, &rigid_body, &position_component_vector, &rigid_body_component_vector);
+            let accept_x = {
+                let new_pos = Position {x: position.x + velocity.vel_x * time_passed / 1000., y: position.y};
+                !collides_with_another_rb(&new_pos, &rigid_body, &position_component_vector, &rigid_body_component_vector)
+            };
             
             // Try moving on Y, check for collisions and record info
-            new_pos.y += velocity.vel_y * time_passed / 1000.;
-            let accept_y = !collides_with_another_rb(&new_pos, &rigid_body, &position_component_vector, &rigid_body_component_vector);
+            let accept_y = {
+                let new_pos = Position {x: position.x, y: position.y + velocity.vel_y * time_passed / 1000.};
+                !collides_with_another_rb(&new_pos, &rigid_body, &position_component_vector, &rigid_body_component_vector)
+            };
 
-            let accept_movement = match (accept_x, accept_y) {
-                (true, true) => AcceptMovement::Both,
-                (false, false) => AcceptMovement::Neither,
-                (true, false) => AcceptMovement::OnX,
-                (false, true) => AcceptMovement::OnY,
+            let accept_both = {
+                let new_pos = Position {x: position.x + velocity.vel_x * time_passed / 1000., y: position.y + velocity.vel_y * time_passed / 1000.};
+                !collides_with_another_rb(&new_pos, &rigid_body, &position_component_vector, &rigid_body_component_vector)
+            };
+
+            let accept_movement = {
+                if accept_both {
+                    AcceptMovement::Both
+                } else if accept_x {
+                    AcceptMovement::OnX
+                } else if accept_y {
+                    AcceptMovement::OnY
+                } else {
+                    AcceptMovement::Neither
+                }
             };
             movement_allowed[index] = accept_movement;
         }

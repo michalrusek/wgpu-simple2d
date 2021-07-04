@@ -233,34 +233,37 @@ impl Game {
                 self.add_component_to_entity(terrain_index, BlocksMovement {blocks: true});
                 self.add_component_to_entity(terrain_index, EntityType::Static);
             }
-            {
-                let pineapple_index = self.add_entity();
-                let mut sprites: Vec<Sprite> = Vec::new();
-                for i in 0..17 {
-                    let filename_prefix: String = "res/pineapple/row-1-col-".to_owned();
-                    let extension = ".png";
-                    let full_filename = filename_prefix + &(i + 1).to_string() + extension;
-                    let texture = renderer.register_texture(&full_filename);
-                    sprites.push(Sprite {
-                        texture_id: texture,
-                        render: true,
-                        width_normalized: 64. / self.target_resolution[0] as f32,
-                        height_normalized: 64. / self.target_resolution[1] as f32,
-                        z: 1,
+            {   
+                for i in 0..20 {
+                    let pineapple_index = self.add_entity();
+                    let mut sprites: Vec<Sprite> = Vec::new();
+                    for i in 0..17 {
+                        let filename_prefix: String = "res/pineapple/row-1-col-".to_owned();
+                        let extension = ".png";
+                        let full_filename = filename_prefix + &(i + 1).to_string() + extension;
+                        let texture = renderer.register_texture(&full_filename);
+                        sprites.push(Sprite {
+                            texture_id: texture,
+                            render: true,
+                            width_normalized: 64. / self.target_resolution[0] as f32,
+                            height_normalized: 64. / self.target_resolution[1] as f32,
+                            z: 1,
+                        });
+                    }  
+                    self.add_component_to_entity(pineapple_index, Animation {
+                        animation_name: "idle",
+                        current_frame_index: 0,
+                        running: true,
+                        time_per_frame_ms: 50,
+                        time_since_last_frame: 0,
+                        sprites
                     });
-                }  
-                self.add_component_to_entity(pineapple_index, Animation {
-                    animation_name: "idle",
-                    current_frame_index: 0,
-                    running: true,
-                    time_per_frame_ms: 50,
-                    time_since_last_frame: 0,
-                    sprites
-                });
-                self.add_component_to_entity(pineapple_index, Position {x: 200. / self.target_resolution[0] as f32, y: 504. / self.target_resolution[1] as f32});
-                self.add_component_to_entity(pineapple_index, RigidBody {width: 96. / self.target_resolution[0] as f32, height: 96. / self.target_resolution[1] as f32});
-                self.add_component_to_entity(pineapple_index, MarkedForDeletion {marked: false});
-                self.add_component_to_entity(pineapple_index, EntityType::Pineapple);
+                    let pineapple_x = 200 + i * 50;
+                    self.add_component_to_entity(pineapple_index, Position {x: pineapple_x as f32 / self.target_resolution[0] as f32, y: 504. / self.target_resolution[1] as f32});
+                    self.add_component_to_entity(pineapple_index, RigidBody {width: 96. / self.target_resolution[0] as f32, height: 96. / self.target_resolution[1] as f32});
+                    self.add_component_to_entity(pineapple_index, MarkedForDeletion {marked: false});
+                    self.add_component_to_entity(pineapple_index, EntityType::Pineapple);
+                }
             }
         }
     }

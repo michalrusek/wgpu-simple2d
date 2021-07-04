@@ -81,3 +81,13 @@ pub enum PlayerStateKind {
     RunningRight,
     Falling,
 }
+
+pub enum EntityType {
+    Player,
+    Static,
+    Pineapple,
+}
+
+pub struct MarkedForDeletion {
+    pub marked: bool,
+}

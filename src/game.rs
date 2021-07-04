@@ -7,6 +7,8 @@ use crate::systems::gravity::*;
 use crate::systems::physics::*;
 use crate::systems::collision::*;
 use crate::systems::player_animation::*;
+use crate::systems::player_pineapple::*;
+use std::any;
 use std::cell::{RefCell, RefMut};
 
 pub struct Game {
@@ -51,14 +53,14 @@ impl Game {
                                 render: true,
                                 width_normalized: 64. / self.target_resolution[0] as f32,
                                 height_normalized: 64. / self.target_resolution[1] as f32,
-                                z: 0,
+                                z: 10,
                             },
                             Sprite {
                                 texture_id: player_texture_2,
                                 render: true,
                                 width_normalized: 64. / self.target_resolution[0] as f32,
                                 height_normalized: 64. / self.target_resolution[1] as f32,
-                                z: 0,
+                                z: 10,
                             },
                         ]
                     };
@@ -79,7 +81,7 @@ impl Game {
                             render: true,
                             width_normalized: 64. / self.target_resolution[0] as f32,
                             height_normalized: 64. / self.target_resolution[1] as f32,
-                            z: 0,
+                            z: 10,
                         });
                     }   
                     let anim = Animation {
@@ -107,7 +109,7 @@ impl Game {
                             render: true,
                             width_normalized: 64. / self.target_resolution[0] as f32,
                             height_normalized: 64. / self.target_resolution[1] as f32,
-                            z: 0,
+                            z: 10,
                         });
                     }   
                     let anim = Animation {
@@ -131,7 +133,7 @@ impl Game {
                         render: true,
                         width_normalized: 64. / self.target_resolution[0] as f32,
                         height_normalized: 64. / self.target_resolution[1] as f32,
-                        z: 0,
+                        z: 10,
                     });
                     let anim = Animation {
                         animation_name: "jump",
@@ -154,7 +156,7 @@ impl Game {
                         render: true,
                         width_normalized: 64. / self.target_resolution[0] as f32,
                         height_normalized: 64. / self.target_resolution[1] as f32,
-                        z: 0,
+                        z: 10,
                     });
                     let anim = Animation {
                         animation_name: "fall",
@@ -180,6 +182,7 @@ impl Game {
             self.add_component_to_entity(self.player_index, RigidBody {width: 64. / self.target_resolution[0] as f32, height: 64. / self.target_resolution[1] as f32});
             self.add_component_to_entity(self.player_index, CollisionList {list: Vec::new()});
             self.add_component_to_entity(self.player_index, PlayerState{state: PlayerStateKind::Idle});
+            self.add_component_to_entity(self.player_index, EntityType::Player);
         }
 
         // Load terrain
@@ -199,6 +202,7 @@ impl Game {
                 self.add_component_to_entity(terrain_index, Position {x: offset, y: 600. / self.target_resolution[1] as f32});
                 self.add_component_to_entity(terrain_index, RigidBody {width: 96. / self.target_resolution[0] as f32, height: 96. / self.target_resolution[1] as f32});
                 self.add_component_to_entity(terrain_index, BlocksMovement {blocks: true});
+                self.add_component_to_entity(terrain_index, EntityType::Static);
             }
 
             {
@@ -213,6 +217,7 @@ impl Game {
                 self.add_component_to_entity(terrain_index, Position {x: (self.target_resolution[0] - 96) as f32 / self.target_resolution[0] as f32, y: 504. / self.target_resolution[1] as f32});
                 self.add_component_to_entity(terrain_index, RigidBody {width: 96. / self.target_resolution[0] as f32, height: 96. / self.target_resolution[1] as f32});
                 self.add_component_to_entity(terrain_index, BlocksMovement {blocks: true});
+                self.add_component_to_entity(terrain_index, EntityType::Static);
             }
             {
                 let terrain_index = self.add_entity();
@@ -226,6 +231,36 @@ impl Game {
                 self.add_component_to_entity(terrain_index, Position {x: 0. / self.target_resolution[0] as f32, y: 504. / self.target_resolution[1] as f32});
                 self.add_component_to_entity(terrain_index, RigidBody {width: 96. / self.target_resolution[0] as f32, height: 96. / self.target_resolution[1] as f32});
                 self.add_component_to_entity(terrain_index, BlocksMovement {blocks: true});
+                self.add_component_to_entity(terrain_index, EntityType::Static);
+            }
+            {
+                let pineapple_index = self.add_entity();
+                let mut sprites: Vec<Sprite> = Vec::new();
+                for i in 0..17 {
+                    let filename_prefix: String = "res/pineapple/row-1-col-".to_owned();
+                    let extension = ".png";
+                    let full_filename = filename_prefix + &(i + 1).to_string() + extension;
+                    let texture = renderer.register_texture(&full_filename);
+                    sprites.push(Sprite {
+                        texture_id: texture,
+                        render: true,
+                        width_normalized: 64. / self.target_resolution[0] as f32,
+                        height_normalized: 64. / self.target_resolution[1] as f32,
+                        z: 1,
+                    });
+                }  
+                self.add_component_to_entity(pineapple_index, Animation {
+                    animation_name: "idle",
+                    current_frame_index: 0,
+                    running: true,
+                    time_per_frame_ms: 50,
+                    time_since_last_frame: 0,
+                    sprites
+                });
+                self.add_component_to_entity(pineapple_index, Position {x: 200. / self.target_resolution[0] as f32, y: 504. / self.target_resolution[1] as f32});
+                self.add_component_to_entity(pineapple_index, RigidBody {width: 96. / self.target_resolution[0] as f32, height: 96. / self.target_resolution[1] as f32});
+                self.add_component_to_entity(pineapple_index, MarkedForDeletion {marked: false});
+                self.add_component_to_entity(pineapple_index, EntityType::Pineapple);
             }
         }
     }
@@ -324,9 +359,40 @@ impl Game {
             }
         }
 
+        // Player pineapple system
+        {
+            if let (
+                Some(mut collision_list_components),
+                Some(mut marked_for_deletion_components),
+                Some(mut entity_type_components),
+            ) = (
+                self.borrow_component_vector_mut::<CollisionList>(),
+                self.borrow_component_vector_mut::<MarkedForDeletion>(),
+                self.borrow_component_vector_mut::<EntityType>(),
+            ) {
+                player_pineapple_system(&collision_list_components, &mut marked_for_deletion_components, &entity_type_components, self.player_index);
+            }
+        }
+
         // Clear up the keyboard input queue
         {
             self.keyboard_input_queue.clear();
+        }
+
+        // Special system that removes unused entities
+        {
+            let mut entities_for_deletion: Vec<usize> = Vec::new();
+            if let Some(marked_for_deletion_components) = self.borrow_component_vector_mut::<MarkedForDeletion>() {
+                let iter = marked_for_deletion_components.iter().enumerate();
+                for (marked_for_deletion, index) in iter.filter_map(|(index, marked_for_deletion)| Some((marked_for_deletion.as_ref()?, index))) {
+                    if marked_for_deletion.marked {
+                        entities_for_deletion.push(index);
+                    }
+                }
+            }
+            for index_to_delete in entities_for_deletion {
+                self.delete_entity(index_to_delete);
+            }
         }
     }
 
@@ -405,6 +471,7 @@ impl Game {
     }
 
     fn add_entity(&mut self) -> usize {
+        // TODO: USE INDEXES OF ENTITIES THAT WERE ALREADY DELETED HERE TO SAVE MEMORY!
         let new_id = self.entity_count;
         for components_vector in self.component_vectors.iter_mut() {
             components_vector.push_none();
@@ -451,12 +518,19 @@ impl Game {
         }
         None
     }
+
+    fn delete_entity(&mut self, entity_index: usize) {
+        for components_vector in self.component_vectors.iter_mut() {
+            components_vector.remove_component_for_entity(entity_index);
+        }
+    }
 }
 
 trait ComponentsVector {
     fn as_any(&self) -> &dyn std::any::Any;
     fn as_any_mut(&mut self) -> &mut dyn std::any::Any;
     fn push_none(&mut self);
+    fn remove_component_for_entity(&mut self, entity_index: usize);
 }
 
 impl<T: 'static> ComponentsVector for RefCell<Vec<Option<T>>> {
@@ -468,5 +542,10 @@ impl<T: 'static> ComponentsVector for RefCell<Vec<Option<T>>> {
     }
     fn push_none(&mut self) {
         self.get_mut().push(None)
+    }
+    fn remove_component_for_entity(&mut self, entity_index: usize) {
+        if let Some(comp) = self.get_mut().get_mut(entity_index) {
+            *comp = None;
+        }
     }
 }

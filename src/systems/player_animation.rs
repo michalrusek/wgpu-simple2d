@@ -43,6 +43,8 @@ pub fn player_animation_system(
             ensure_correct_animation_playing(animation_map, "running_right");
             animation_map.horiz_mirror = true;
         } else if vel_y  == 0. {
+            // The idle animation will take over the horiz_mirror parameter of the last animation that was playing
+            // that way if we were running left and stopped the idle animation will be facing left too
             ensure_correct_animation_playing(animation_map, "idle");
         } 
     }

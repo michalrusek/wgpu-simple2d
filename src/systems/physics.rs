@@ -30,18 +30,18 @@ pub fn physics_system(
                 // Try moving on X, check for collisions and record info
                 let accept_x = {
                     let new_pos = Position {x: position.x + velocity.vel_x * time_passed / 1000., y: position.y};
-                    !collides_with_another_rb(&new_pos, &rigid_body, &position_component_vector, &rigid_body_component_vector)
+                    !collides_with_another_rb(&new_pos, &rigid_body, &position_component_vector, &rigid_body_component_vector, &blocks_movement_component_vector)
                 };
                 
                 // Try moving on Y, check for collisions and record info
                 let accept_y = {
                     let new_pos = Position {x: position.x, y: position.y + velocity.vel_y * time_passed / 1000.};
-                    !collides_with_another_rb(&new_pos, &rigid_body, &position_component_vector, &rigid_body_component_vector)
+                    !collides_with_another_rb(&new_pos, &rigid_body, &position_component_vector, &rigid_body_component_vector, &blocks_movement_component_vector)
                 };
 
                 let accept_both = {
                     let new_pos = Position {x: position.x + velocity.vel_x * time_passed / 1000., y: position.y + velocity.vel_y * time_passed / 1000.};
-                    !collides_with_another_rb(&new_pos, &rigid_body, &position_component_vector, &rigid_body_component_vector)
+                    !collides_with_another_rb(&new_pos, &rigid_body, &position_component_vector, &rigid_body_component_vector, &blocks_movement_component_vector)
                 };
 
                 let accept_movement = {
@@ -105,7 +105,8 @@ fn collides_with_another_rb (
     position_a: &Position, 
     rigid_body_a: &RigidBody, 
     all_positions: &Vec<Option<Position>>, 
-    all_rigid_bodies: &Vec<Option<RigidBody>>
+    all_rigid_bodies: &Vec<Option<RigidBody>>,
+    all_blocks_movement: &Vec<Option<BlocksMovement>>,
 ) -> bool {
     // Simple AABB collision detection
     let min_x_a = position_a.x;
@@ -115,10 +116,11 @@ fn collides_with_another_rb (
     let iter_b = {
         let rigid_body_iter_b = all_rigid_bodies.iter();
         let position_iter_b = all_positions.iter();
-        rigid_body_iter_b.enumerate().zip(position_iter_b).filter_map(|((i, rigid_body), position)| Some((rigid_body.as_ref()?, position.as_ref()?, i)))
+        let blocks_movement_iter_b = all_blocks_movement.iter();
+        rigid_body_iter_b.enumerate().zip(position_iter_b.zip(blocks_movement_iter_b)).filter_map(|((i, rigid_body), (position, blocks_movement))| Some((rigid_body.as_ref()?, position.as_ref()?, blocks_movement.as_ref()?, i)))
     };
-    for (rigid_body_b, position_b, i_b) in iter_b {
-        if !std::ptr::eq(rigid_body_a, rigid_body_b) {
+    for (rigid_body_b, position_b, blocks_movement_b, i_b) in iter_b {
+        if !std::ptr::eq(rigid_body_a, rigid_body_b) && blocks_movement_b.blocks {
             let min_x_b = position_b.x;
             let min_y_b = position_b.y;
             let max_x_b = position_b.x + rigid_body_b.width;

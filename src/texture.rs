@@ -59,7 +59,7 @@ impl Texture {
         Self::from_image(device, queue, &img, Some(label), layout)
     }
     pub fn from_image(device: &wgpu::Device, queue: &wgpu::Queue, img: &image::DynamicImage, label: Option<&str>, layout: &wgpu::BindGroupLayout) -> Result<Self> {
-        let rgba = img.to_rgba();
+        let rgba = img.to_rgba8();
         let dimensions = img.dimensions();
 
         let text_size = wgpu::Extent3d {

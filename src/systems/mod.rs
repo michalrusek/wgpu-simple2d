@@ -4,4 +4,4 @@ pub mod animation;
 pub mod gravity;
 pub mod physics;
 pub mod collision;
-pub mod clipping;
+pub mod player_animation;

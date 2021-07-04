@@ -23,6 +23,12 @@ pub struct Animation<'a> {
     pub current_frame_index: usize,
 }
 
+pub struct AnimationMap<'a> {
+    pub map: std::collections::HashMap<&'a str, Animation<'a>>,
+    pub horiz_mirror: bool,
+    pub current_animation_name: &'a str,
+}
+
 pub struct Position {
     pub x: f32,
     pub y: f32,
@@ -68,6 +74,7 @@ pub struct PlayerState {
     pub state: PlayerStateKind
 }
 
+#[derive(PartialEq, Debug)]
 pub enum PlayerStateKind {
     Idle,
     RunningLeft,

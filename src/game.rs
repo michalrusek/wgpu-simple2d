@@ -6,7 +6,7 @@ use crate::systems::animation::*;
 use crate::systems::gravity::*;
 use crate::systems::physics::*;
 use crate::systems::collision::*;
-use crate::systems::clipping::*;
+use crate::systems::player_animation::*;
 use std::cell::{RefCell, RefMut};
 
 pub struct Game {
@@ -28,32 +28,150 @@ impl Game {
 
         // Load player
         {   
-            let player_texture = renderer.register_texture("res/sillyboi.png");
-            let player_texture_2 = renderer.register_texture("res/sillyboi2.png");
+            // Add a new entity for the player
             self.player_index = self.add_entity();
-            self.add_component_to_entity(self.player_index, Animation {
-                animation_name: "idle", 
-                time_per_frame_ms: 250,
-                time_since_last_frame: 0,
-                current_frame_index: 1,
-                running: true,
-                sprites: vec![
-                    Sprite {
-                        texture_id: player_texture,
+
+            // Prepare all animations for the player
+            let anim_map = {
+                let mut anim_map = AnimationMap {map: std::collections::HashMap::new(), current_animation_name: "", horiz_mirror: false};
+
+                // Idle animation
+                {
+                    let player_texture = renderer.register_texture("res/sillyboi.png");
+                    let player_texture_2 = renderer.register_texture("res/sillyboi2.png");
+                    let anim_idle = Animation {
+                        animation_name: "idle", 
+                        time_per_frame_ms: 250,
+                        time_since_last_frame: 0,
+                        current_frame_index: 1,
+                        running: true,
+                        sprites: vec![
+                            Sprite {
+                                texture_id: player_texture,
+                                render: true,
+                                width_normalized: 64. / self.target_resolution[0] as f32,
+                                height_normalized: 64. / self.target_resolution[1] as f32,
+                                z: 0,
+                            },
+                            Sprite {
+                                texture_id: player_texture_2,
+                                render: true,
+                                width_normalized: 64. / self.target_resolution[0] as f32,
+                                height_normalized: 64. / self.target_resolution[1] as f32,
+                                z: 0,
+                            },
+                        ]
+                    };
+                    anim_map.current_animation_name = anim_idle.animation_name;
+                    anim_map.map.insert(anim_idle.animation_name, anim_idle);
+                }
+
+                // Running right animation
+                {
+                    let mut sprites: Vec<Sprite> = Vec::new();
+                    for i in 0..12 {
+                        let filename_prefix: String = "res/sillyboi_running_right/row-1-col-".to_owned();
+                        let extension = ".png";
+                        let full_filename = filename_prefix + &(i + 1).to_string() + extension;
+                        let texture = renderer.register_texture(&full_filename);
+                        sprites.push(Sprite {
+                            texture_id: texture,
+                            render: true,
+                            width_normalized: 64. / self.target_resolution[0] as f32,
+                            height_normalized: 64. / self.target_resolution[1] as f32,
+                            z: 0,
+                        });
+                    }   
+                    let anim = Animation {
+                        animation_name: "running_right",
+                        current_frame_index: 0,
+                        running: true,
+                        sprites,
+                        time_per_frame_ms: 50,
+                        time_since_last_frame: 0,
+                    };
+                    anim_map.current_animation_name = anim.animation_name;
+                    anim_map.map.insert(anim.animation_name, anim);
+                }
+                
+                // Running left animation
+                {
+                    let mut sprites: Vec<Sprite> = Vec::new();
+                    for i in (0..12).rev() {
+                        let filename_prefix: String = "res/sillyboi_running_left/row-1-col-".to_owned();
+                        let extension = ".png";
+                        let full_filename = filename_prefix + &(i + 1).to_string() + extension;
+                        let texture = renderer.register_texture(&full_filename);
+                        sprites.push(Sprite {
+                            texture_id: texture,
+                            render: true,
+                            width_normalized: 64. / self.target_resolution[0] as f32,
+                            height_normalized: 64. / self.target_resolution[1] as f32,
+                            z: 0,
+                        });
+                    }   
+                    let anim = Animation {
+                        animation_name: "running_left",
+                        current_frame_index: 0,
+                        running: true,
+                        sprites,
+                        time_per_frame_ms: 50,
+                        time_since_last_frame: 0,
+                    };
+                    anim_map.current_animation_name = anim.animation_name;
+                    anim_map.map.insert(anim.animation_name, anim);
+                }
+
+                // Jump animation
+                {
+                    let mut sprites: Vec<Sprite> = Vec::new();
+                    let texture = renderer.register_texture("res/sillyboi_jump/Jump (32x32).png");
+                    sprites.push(Sprite {
+                        texture_id: texture,
                         render: true,
                         width_normalized: 64. / self.target_resolution[0] as f32,
                         height_normalized: 64. / self.target_resolution[1] as f32,
                         z: 0,
-                    },
-                    Sprite {
-                        texture_id: player_texture_2,
+                    });
+                    let anim = Animation {
+                        animation_name: "jump",
+                        current_frame_index: 0,
+                        running: true,
+                        sprites,
+                        time_per_frame_ms: 50,
+                        time_since_last_frame: 0,
+                    };
+                    anim_map.current_animation_name = anim.animation_name;
+                    anim_map.map.insert(anim.animation_name, anim);
+                }
+
+                // Fall animation
+                {
+                    let mut sprites: Vec<Sprite> = Vec::new();
+                    let texture = renderer.register_texture("res/sillyboi_fall/Fall (32x32).png");
+                    sprites.push(Sprite {
+                        texture_id: texture,
                         render: true,
                         width_normalized: 64. / self.target_resolution[0] as f32,
                         height_normalized: 64. / self.target_resolution[1] as f32,
                         z: 0,
-                    },
-                ]
-            });
+                    });
+                    let anim = Animation {
+                        animation_name: "fall",
+                        current_frame_index: 0,
+                        running: true,
+                        sprites,
+                        time_per_frame_ms: 50,
+                        time_since_last_frame: 0,
+                    };
+                    anim_map.current_animation_name = anim.animation_name;
+                    anim_map.map.insert(anim.animation_name, anim);
+                }
+                anim_map
+            };
+            self.add_component_to_entity(self.player_index, anim_map);
+            
+            // Prepare the rest of simpler components
             self.add_component_to_entity(self.player_index, Name {name: "silly boi"});
             self.add_component_to_entity(self.player_index, Health {health: 100});
             self.add_component_to_entity(self.player_index, Position {x: 100. / self.target_resolution[0] as f32, y: 0. / self.target_resolution[1] as f32});
@@ -78,7 +196,7 @@ impl Game {
                     height_normalized: 96. / self.target_resolution[1] as f32,
                     z: 1,
                 });
-                self.add_component_to_entity(terrain_index, Position {x: offset, y: 164. / self.target_resolution[1] as f32});
+                self.add_component_to_entity(terrain_index, Position {x: offset, y: 600. / self.target_resolution[1] as f32});
                 self.add_component_to_entity(terrain_index, RigidBody {width: 96. / self.target_resolution[0] as f32, height: 96. / self.target_resolution[1] as f32});
                 self.add_component_to_entity(terrain_index, BlocksMovement {blocks: true});
             }
@@ -92,7 +210,7 @@ impl Game {
                     height_normalized: 96. / self.target_resolution[1] as f32,
                     z: 1,
                 });
-                self.add_component_to_entity(terrain_index, Position {x: (self.target_resolution[0] - 96) as f32 / self.target_resolution[0] as f32, y: 68. / self.target_resolution[1] as f32});
+                self.add_component_to_entity(terrain_index, Position {x: (self.target_resolution[0] - 96) as f32 / self.target_resolution[0] as f32, y: 504. / self.target_resolution[1] as f32});
                 self.add_component_to_entity(terrain_index, RigidBody {width: 96. / self.target_resolution[0] as f32, height: 96. / self.target_resolution[1] as f32});
                 self.add_component_to_entity(terrain_index, BlocksMovement {blocks: true});
             }
@@ -105,7 +223,7 @@ impl Game {
                     height_normalized: 96. / self.target_resolution[1] as f32,
                     z: 1,
                 });
-                self.add_component_to_entity(terrain_index, Position {x: 0. / self.target_resolution[0] as f32, y: 68. / self.target_resolution[1] as f32});
+                self.add_component_to_entity(terrain_index, Position {x: 0. / self.target_resolution[0] as f32, y: 504. / self.target_resolution[1] as f32});
                 self.add_component_to_entity(terrain_index, RigidBody {width: 96. / self.target_resolution[0] as f32, height: 96. / self.target_resolution[1] as f32});
                 self.add_component_to_entity(terrain_index, BlocksMovement {blocks: true});
             }
@@ -138,9 +256,9 @@ impl Game {
 
         // Animation system
         {
-            if let Some(mut animation_components) = self.borrow_component_vector_mut::<Animation>() {
-                animation_system(&mut animation_components, time_passed);
-            }
+            let mut animation_components = self.borrow_component_vector_mut::<Animation>();
+            let mut animation_map_components = self.borrow_component_vector_mut::<AnimationMap>();
+            animation_system(&mut animation_components, &mut animation_map_components, time_passed);
         }
 
         // Gravity system
@@ -193,22 +311,16 @@ impl Game {
             }
         }
 
-        // Clipping system
+        // Player animation system
         {
             if let (
-                Some(mut position_components),
-                Some(mut rigid_body_components),
-                Some(mut collision_list_components),
+                Some(mut velocity_components),
+                Some(mut animation_map_components),
             ) = (
-                self.borrow_component_vector_mut::<Position>(),
-                self.borrow_component_vector_mut::<RigidBody>(),
-                self.borrow_component_vector_mut::<CollisionList>(),
+                self.borrow_component_vector_mut::<Velocity>(), 
+                self.borrow_component_vector_mut::<AnimationMap>(), 
             ) {
-                clipping_system(
-                    &mut position_components, 
-                    &mut rigid_body_components,
-                    &mut collision_list_components,
-                );
+                player_animation_system(&mut velocity_components, &mut animation_map_components, self.player_index);
             }
         }
 
@@ -228,11 +340,11 @@ impl Game {
         let mut z_buffer: Vec<u32> = Vec::new(); // TODO: Could do Z-checks work on a GPU instead proly
 
         // Sprite rendering function
-        let mut render_sprite = |position: &Position, sprite: &Sprite| {
+        let mut render_sprite = |position: &Position, sprite: &Sprite, horiz_mirror: bool| {
             if sprite.render {
                 let (x1, y1) = (position.x, position.y);
                 let (x2, y2) = (position.x + sprite.width_normalized, position.y + sprite.height_normalized);
-                let new_renderable = Renderable{ p1: [x1, y1], p2: [x2, y2], texture_id: sprite.texture_id, use_texture_size: false };
+                let new_renderable = Renderable{ p1: [x1, y1], p2: [x2, y2], texture_id: sprite.texture_id, use_texture_size: false, horiz_mirror };
                 if to_return.is_empty() {
                     to_return.push(new_renderable);
                     z_buffer.push(sprite.z);
@@ -253,24 +365,39 @@ impl Game {
 
         // Render simple sprites
         {
-            let sprites = self.borrow_component_vector_mut::<Sprite>().unwrap();
-            let positions = self.borrow_component_vector_mut::<Position>().unwrap();
-            let zip = positions.iter().zip(sprites.iter());
-            let iter = zip.filter_map(|(position, sprite)| Some((position.as_ref()?, sprite.as_ref()?)));
-            for (position, sprite) in iter {
-                render_sprite(&position, &sprite);
+            if let (Some(sprites), Some(positions)) = (self.borrow_component_vector_mut::<Sprite>(), self.borrow_component_vector_mut::<Position>()) {
+                let zip = positions.iter().zip(sprites.iter());
+                let iter = zip.filter_map(|(position, sprite)| Some((position.as_ref()?, sprite.as_ref()?)));
+                for (position, sprite) in iter {
+                    render_sprite(&position, &sprite, false);
+                }
             }
         }
 
-        // Render animations
+        // Render simple animations
         {
-            let animations = self.borrow_component_vector_mut::<Animation>().unwrap();
-            let positions = self.borrow_component_vector_mut::<Position>().unwrap();
-            let zip = positions.iter().zip(animations.iter());
-            let iter = zip.filter_map(|(position, animation)| Some((position.as_ref()?, animation.as_ref()?)));
-            for (position, animation) in iter {
-                let sprite = animation.sprites.get(animation.current_frame_index).unwrap();
-                render_sprite(&position, &sprite);
+            if let (Some(animations), Some(positions)) = (self.borrow_component_vector_mut::<Animation>(), self.borrow_component_vector_mut::<Position>()) {
+                let zip = positions.iter().zip(animations.iter());
+                let iter = zip.filter_map(|(position, animation)| Some((position.as_ref()?, animation.as_ref()?)));
+                for (position, animation) in iter {
+                    let sprite = animation.sprites.get(animation.current_frame_index).unwrap();
+                    render_sprite(&position, &sprite, false);
+                }
+            }
+        }
+
+        // Render animation maps
+        {
+            if let (Some(animation_maps), Some(positions)) = (self.borrow_component_vector_mut::<AnimationMap>(), self.borrow_component_vector_mut::<Position>()) {
+                let zip = positions.iter().zip(animation_maps.iter());
+                let iter = zip.filter_map(|(position, animation_map)| Some((position.as_ref()?, animation_map.as_ref()?)));
+                for (position, animation_map) in iter {
+                    if let Some(animation) = animation_map.map.get(animation_map.current_animation_name) {
+                        if let Some(sprite) = animation.sprites.get(animation.current_frame_index) {
+                            render_sprite(&position, &sprite, animation_map.horiz_mirror);
+                        }
+                    }   
+                }
             }
         }
 

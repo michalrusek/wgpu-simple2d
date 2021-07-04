@@ -13,3 +13,6 @@
 - You can collect coins
 - Timer runs down from 300s and one coin = +1s
 - At the end a screen shows the score (the time)
+
+# Other
+- Graphical assets from: https://pixelfrog-assets.itch.io

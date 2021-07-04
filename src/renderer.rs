@@ -202,18 +202,26 @@ impl Renderer {
                         }
                     };
                     
+                    let (tex_x1, tex_y1, tex_x2, tex_y2) = {
+                        if !renderable.horiz_mirror {
+                            (0., 0., 1., 1.)
+                        } else {
+                            (1., 0., 0., 1.)
+                        }
+                    };
                     buffers.push(
+                        
                         self.device.create_buffer_init(
                             &wgpu::util::BufferInitDescriptor {
                                 label: None,
                                 contents: bytemuck::cast_slice(&[
-                                    crate::texture::Vertex{position: [p1x, p1y, 0.0], tex_coords: [0.0, 0.0]},
-                                    crate::texture::Vertex{position: [p1x, p2y, 0.0], tex_coords: [0.0, 1.0]},
-                                    crate::texture::Vertex{position: [p2x, p2y, 0.0], tex_coords: [1.0, 1.0]},
+                                    crate::texture::Vertex{position: [p1x, p1y, 0.0], tex_coords: [tex_x1, tex_y1]},
+                                    crate::texture::Vertex{position: [p1x, p2y, 0.0], tex_coords: [tex_x1, tex_y2]},
+                                    crate::texture::Vertex{position: [p2x, p2y, 0.0], tex_coords: [tex_x2, tex_y2]},
                 
-                                    crate::texture::Vertex{position: [p1x, p1y, 0.0], tex_coords: [0.0, 0.0]},
-                                    crate::texture::Vertex{position: [p2x, p2y, 0.0], tex_coords: [1.0, 1.0]},
-                                    crate::texture::Vertex{position: [p2x, p1y, 0.0], tex_coords: [1.0, 0.0]},
+                                    crate::texture::Vertex{position: [p1x, p1y, 0.0], tex_coords: [tex_x1, tex_y1]},
+                                    crate::texture::Vertex{position: [p2x, p2y, 0.0], tex_coords: [tex_x2, tex_y2]},
+                                    crate::texture::Vertex{position: [p2x, p1y, 0.0], tex_coords: [tex_x2, tex_y1]},
                 
                                 ]),
                                 usage: wgpu::BufferUsage::VERTEX,
@@ -288,4 +296,5 @@ pub struct Renderable {
     pub p1: [f32; 2],
     pub p2: [f32; 2],
     pub use_texture_size: bool,
+    pub horiz_mirror: bool,
 }

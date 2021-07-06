@@ -10,23 +10,63 @@ use crate::systems::player_animation::*;
 use crate::systems::player_pineapple::*;
 use std::any;
 use std::cell::{RefCell, RefMut};
+use std::collections::HashMap;
 
 pub struct Game {
     target_resolution: [u32; 2],
     keyboard_input_queue: Vec<winit::event::KeyboardInput>,
     player_index: usize,
     entity_count: usize,
-    component_vectors: Vec<Box<dyn ComponentsVector>> // Vector containing other vectors - each vector here is of a component type and has components of that type;
+    component_vectors: Vec<Box<dyn ComponentsVector>>, // Vector containing other vectors - each vector here is of a component type and has components of that type;
+    font: Option<HashMap<char, Sprite>>,
 }
 
 impl Game {
     pub fn new(target_resolution: [u32; 2]) -> Self {
 
-        Self {target_resolution, entity_count: 0, component_vectors: Vec::new(), player_index: 0, keyboard_input_queue: Vec::new()}
+        Self {target_resolution, entity_count: 0, component_vectors: Vec::new(), player_index: 0, keyboard_input_queue: Vec::new(), font: None}
     }
 
     pub fn init(&mut self, renderer: &mut Renderer) {
         // Initialize components and stuff here
+
+        // Load font
+        {
+            let mut font: HashMap<char, Sprite> = HashMap::new();
+            let characters = vec!["p", "o", "i", "n", "t", "s", ":", " ", "1", "2", "3", "4", "5", "6", "7", "8", "9", "0"];
+            let mut special: HashMap<char, String> = HashMap::new();
+            {
+                special.insert(':', String::from("colon"));
+            }
+            {
+                special.insert(' ', String::from("space"));
+            }
+            for c in characters {
+                let full_path = {
+                    let str_start: String = "res/font/".to_owned();
+                    let mut name: String = c.to_string();
+                    if let Some(key) = c.chars().next() {
+                        if let Some(special_name) = special.get(&key) {
+                            name = special_name.to_string();
+                        }
+                    }
+                    str_start + &name.to_owned() + ".png"
+                };
+                let character = renderer.register_texture(&full_path);
+
+                let sprite = Sprite {
+                    texture_id: character,
+                    render: true,
+                    width_normalized: 64. / self.target_resolution[0] as f32,
+                    height_normalized: 64. / self.target_resolution[1] as f32,
+                    z: 100,
+                };
+                if let Some(key) = c.chars().next() {
+                    font.insert(key, sprite);
+                }
+            }
+            self.font = Some(font);
+        }
 
         // Load player
         {   
@@ -35,7 +75,7 @@ impl Game {
 
             // Prepare all animations for the player
             let anim_map = {
-                let mut anim_map = AnimationMap {map: std::collections::HashMap::new(), current_animation_name: "", horiz_mirror: false};
+                let mut anim_map = AnimationMap {map: HashMap::new(), current_animation_name: "", horiz_mirror: false};
 
                 // Idle animation
                 {
@@ -183,6 +223,7 @@ impl Game {
             self.add_component_to_entity(self.player_index, CollisionList {list: Vec::new()});
             self.add_component_to_entity(self.player_index, PlayerState{state: PlayerStateKind::Idle});
             self.add_component_to_entity(self.player_index, EntityType::Player);
+            self.add_component_to_entity(self.player_index, Points{points: 0});
         }
 
         // Load terrain
@@ -368,12 +409,14 @@ impl Game {
                 Some(mut collision_list_components),
                 Some(mut marked_for_deletion_components),
                 Some(mut entity_type_components),
+                Some(mut points_components),
             ) = (
                 self.borrow_component_vector_mut::<CollisionList>(),
                 self.borrow_component_vector_mut::<MarkedForDeletion>(),
                 self.borrow_component_vector_mut::<EntityType>(),
+                self.borrow_component_vector_mut::<Points>(),
             ) {
-                player_pineapple_system(&collision_list_components, &mut marked_for_deletion_components, &entity_type_components, self.player_index);
+                player_pineapple_system(&collision_list_components, &mut marked_for_deletion_components, &entity_type_components, &mut points_components, self.player_index);
             }
         }
 
@@ -404,7 +447,7 @@ impl Game {
         self.keyboard_input_queue.push(*input);
     }
 
-    pub fn get_renderables(&self) -> Vec<Renderable> {
+    fn get_world_renderables(&self) -> Vec<Renderable> {
         let mut to_return: Vec<Renderable> = Vec::new();
         let mut z_buffer: Vec<u32> = Vec::new(); // TODO: Could do Z-checks work on a GPU instead proly
 
@@ -471,6 +514,69 @@ impl Game {
         }
 
         to_return
+    }
+
+    fn get_ui_renderables(&self) -> Vec<Renderable> {
+        // TODO: Render ui
+        let mut to_return: Vec<Renderable> = Vec::new();
+        let mut z_buffer: Vec<u32> = Vec::new(); // TODO: Could do Z-checks work on a GPU instead proly
+
+        // Sprite rendering function
+        let mut render_sprite = |position: &Position, sprite: &Sprite, horiz_mirror: bool| {
+            if sprite.render {
+                let (x1, y1) = (position.x, position.y);
+                let (x2, y2) = (position.x + sprite.width_normalized, position.y + sprite.height_normalized);
+                let new_renderable = Renderable{ p1: [x1, y1], p2: [x2, y2], texture_id: sprite.texture_id, use_texture_size: false, horiz_mirror };
+                if to_return.is_empty() {
+                    to_return.push(new_renderable);
+                    z_buffer.push(sprite.z);
+                } else {
+                    // find the spot for the new thing
+                    let mut new_index = to_return.len();
+                    for (i, _) in to_return.iter().enumerate() {
+                        if z_buffer.get(i).unwrap() < &sprite.z {
+                            new_index = i;
+                            break;
+                        }
+                    }
+                    to_return.insert(new_index, new_renderable);
+                    z_buffer.insert(new_index, sprite.z);
+                }
+            }
+        };
+
+        let mut render_text = |text: &str, x: f32, y: f32| {
+            let mut offset: f32 = 0.;
+            for t in text.chars() {
+                if let Some(font) = &self.font {
+                    if let Some(sprite) = font.get(&t) {
+                        render_sprite(&Position {
+                            x: x + offset,
+                            y: y
+                        }, &sprite, false);
+                        offset += sprite.width_normalized;
+                    }
+                }   
+            }
+        };
+
+         
+        // Do immediate mode UI
+        if let Some(points_component_vector) = self.borrow_component_vector_mut::<Points>() {
+            if let Some(Some(player_points)) = points_component_vector.get(self.player_index) {
+                let points_prefix: String = "points: ".to_owned();
+                render_text(&(points_prefix + &player_points.points.to_string()), 0., 0.);
+            }
+        }
+
+        to_return
+    }
+
+    pub fn get_renderables(&self) -> Vec<Renderable> {
+        let mut ui_renderables = self.get_ui_renderables();
+        let mut world_renderables = self.get_world_renderables();
+        ui_renderables.append(&mut world_renderables);
+        ui_renderables
     }
 
     fn add_entity(&mut self) -> usize {

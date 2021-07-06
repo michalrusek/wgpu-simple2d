@@ -43,6 +43,10 @@ pub struct Velocity {
     pub vel_y: f32,
 }
 
+pub struct Points {
+    pub points: u32,
+}
+
 pub struct RigidBody {
     pub width: f32,
     pub height: f32,

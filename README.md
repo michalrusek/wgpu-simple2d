@@ -1,11 +1,11 @@
 # Open questions
-1. Get a picture rendered on screen
 2. How do engines manage resources?
 3. How is the animation managed profesionally?
 4. Deno for scripts maybe?
 5. Some scene manager above ECS?
-6. HOW TO RENDER RESOLUTIONS OTHER THAN 16:9??
+6. HOW TO RENDER RESOLUTION RATIOS OTHER THAN 16:9??
 7. Tilesets rendering?
+8. TTF font rendering? some wgpu-compatible stuff already here: https://github.com/hecrj/wgpu_glyph/tree/master/src
 
 # Plan?
 - It's a platformer with one level

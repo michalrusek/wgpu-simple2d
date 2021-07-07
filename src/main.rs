@@ -17,6 +17,7 @@ const DESIRED_RENDER_SIZE: [u32; 2] = [1280_u32, 720_u32];
 
 fn main() {
     println!("Hello, world!");
+    env_logger::init();
 
     let event_loop = EventLoop::new();
     let window = WindowBuilder::new()

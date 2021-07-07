@@ -12,11 +12,11 @@ futures = "0.3"
 image = "0.23"
 anyhow = "1.0"
 bytemuck = "1.4"
-
+wgpu_glyph = "0.13.0"
+env_logger = "0.8"
 
 [dependencies.wgpu]
-version = "0.6"
-features = ["vulkan-portability"]
+version = "0.9"
 
 [build-dependencies]
 anyhow = "1.0"

@@ -2,7 +2,7 @@ use image::GenericImageView;
 use anyhow::Result;
 use std::path::Path;
 use wgpu::util::DeviceExt;
-
+use core::num::NonZeroU32;
 
 pub struct Texture {
     pub texture: wgpu::Texture,
@@ -21,7 +21,7 @@ impl Texture {
         let size = wgpu::Extent3d {
             width: sc_desc.width,
             height: sc_desc.height,
-            depth: 1,
+            depth_or_array_layers: 1,
         };
 
         let desc = wgpu::TextureDescriptor {
@@ -31,7 +31,7 @@ impl Texture {
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
             format: Self::DEPTH_FORMAT,
-            usage: wgpu::TextureUsage::OUTPUT_ATTACHMENT | wgpu::TextureUsage::SAMPLED,
+            usage: wgpu::TextureUsage::RENDER_ATTACHMENT | wgpu::TextureUsage::SAMPLED,
         };
 
         let texture = device.create_texture(&desc);
@@ -65,14 +65,14 @@ impl Texture {
         let text_size = wgpu::Extent3d {
             width: dimensions.0,
             height: dimensions.1,
-            depth: 1
+            depth_or_array_layers: 1
         };
         let texture: wgpu::Texture = device.create_texture(
             &wgpu::TextureDescriptor {
                 size: wgpu::Extent3d{
                     width: dimensions.0,
                     height: dimensions.1,
-                    depth: 1,
+                    depth_or_array_layers: 1,
                 },
                 mip_level_count: 1,
                 sample_count: 1,
@@ -82,16 +82,16 @@ impl Texture {
                 label: Some("diffuse_texture")
             }
         );
-        queue.write_texture(wgpu::TextureCopyView {
+        queue.write_texture(wgpu::ImageCopyTexture {
                 texture: &texture,
                 mip_level: 0,
                 origin: wgpu::Origin3d::ZERO,
             }, 
             &rgba, 
-            wgpu::TextureDataLayout {
+            wgpu::ImageDataLayout {
                 offset: 0,
-                bytes_per_row: 4 * dimensions.0,
-                rows_per_image: dimensions.1
+                bytes_per_row: Some(NonZeroU32::new(4 * dimensions.0).unwrap()),
+                rows_per_image: Some(NonZeroU32::new(dimensions.1).unwrap())
             },
             text_size
         );

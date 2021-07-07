@@ -18,55 +18,16 @@ pub struct Game {
     player_index: usize,
     entity_count: usize,
     component_vectors: Vec<Box<dyn ComponentsVector>>, // Vector containing other vectors - each vector here is of a component type and has components of that type;
-    font: Option<HashMap<char, Sprite>>,
 }
 
 impl Game {
     pub fn new(target_resolution: [u32; 2]) -> Self {
 
-        Self {target_resolution, entity_count: 0, component_vectors: Vec::new(), player_index: 0, keyboard_input_queue: Vec::new(), font: None}
+        Self {target_resolution, entity_count: 0, component_vectors: Vec::new(), player_index: 0, keyboard_input_queue: Vec::new()}
     }
 
     pub fn init(&mut self, renderer: &mut Renderer) {
         // Initialize components and stuff here
-
-        // Load font
-        {
-            let mut font: HashMap<char, Sprite> = HashMap::new();
-            let characters = vec!["p", "o", "i", "n", "t", "s", ":", " ", "1", "2", "3", "4", "5", "6", "7", "8", "9", "0"];
-            let mut special: HashMap<char, String> = HashMap::new();
-            {
-                special.insert(':', String::from("colon"));
-            }
-            {
-                special.insert(' ', String::from("space"));
-            }
-            for c in characters {
-                let full_path = {
-                    let str_start: String = "res/font/".to_owned();
-                    let mut name: String = c.to_string();
-                    if let Some(key) = c.chars().next() {
-                        if let Some(special_name) = special.get(&key) {
-                            name = special_name.to_string();
-                        }
-                    }
-                    str_start + &name.to_owned() + ".png"
-                };
-                let character = renderer.register_texture(&full_path);
-
-                let sprite = Sprite {
-                    texture_id: character,
-                    render: true,
-                    width_normalized: 64. / self.target_resolution[0] as f32,
-                    height_normalized: 64. / self.target_resolution[1] as f32,
-                    z: 100,
-                };
-                if let Some(key) = c.chars().next() {
-                    font.insert(key, sprite);
-                }
-            }
-            self.font = Some(font);
-        }
 
         // Load player
         {   
@@ -544,30 +505,6 @@ impl Game {
                 }
             }
         };
-
-        let mut render_text = |text: &str, x: f32, y: f32| {
-            let mut offset: f32 = 0.;
-            for t in text.chars() {
-                if let Some(font) = &self.font {
-                    if let Some(sprite) = font.get(&t) {
-                        render_sprite(&Position {
-                            x: x + offset,
-                            y: y
-                        }, &sprite, false);
-                        offset += sprite.width_normalized;
-                    }
-                }   
-            }
-        };
-
-         
-        // Do immediate mode UI
-        if let Some(points_component_vector) = self.borrow_component_vector_mut::<Points>() {
-            if let Some(Some(player_points)) = points_component_vector.get(self.player_index) {
-                let points_prefix: String = "points: ".to_owned();
-                render_text(&(points_prefix + &player_points.points.to_string()), 0., 0.);
-            }
-        }
 
         to_return
     }

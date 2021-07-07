@@ -1,6 +1,9 @@
 use crate::texture::Texture;
 use std::{mem};
-use wgpu::{DepthBiasState, MultisampleState, PrimitiveState, util::DeviceExt};
+use futures::executor::{LocalPool, LocalSpawner};
+use futures::task::SpawnExt;
+use wgpu::{DepthBiasState, MultisampleState, PrimitiveState, util::{DeviceExt, StagingBelt}};
+use wgpu_glyph::{GlyphBrush, GlyphBrushBuilder, Section, Text, ab_glyph};
 
 pub struct Renderer {
     surface: wgpu::Surface,
@@ -14,6 +17,10 @@ pub struct Renderer {
     texture_bind_group_layout: wgpu::BindGroupLayout,
     textures: Vec<Texture>,
     desired_res: winit::dpi::PhysicalSize<u32>,
+    glyph_brush: GlyphBrush<()>,
+    staging_belt: StagingBelt,
+    staging_belt_local_pool: LocalPool,
+    staging_belt_local_spawner: LocalSpawner,
 }
 
 impl Renderer {
@@ -33,9 +40,20 @@ impl Renderer {
             label: None
         }, None).await.unwrap();
 
+        // Setup font rendering
+        let render_format = wgpu::TextureFormat::Bgra8UnormSrgb;
+        let font = ab_glyph::FontArc::try_from_slice(include_bytes!("../res/font/PressStart2P-Regular.ttf")).unwrap();
+        let glyph_brush = GlyphBrushBuilder::using_font(font).build(&device, render_format);
+
+        // The font library requires a staging belt that has to be synced manually unfortunately
+        // TODO: Check if you could load the font to gpu and just draw instanced on chars?
+        let staging_belt = wgpu::util::StagingBelt::new(1024);
+        let staging_belt_local_pool = LocalPool::new();
+        let staging_belt_local_spawner = staging_belt_local_pool.spawner();
+
         let sc_desc = wgpu::SwapChainDescriptor {
             usage: wgpu::TextureUsage::RENDER_ATTACHMENT,
-            format: wgpu::TextureFormat::Bgra8UnormSrgb,
+            format: render_format,
             width: size.width,
             height: size.height,
             present_mode: wgpu::PresentMode::Fifo,
@@ -165,10 +183,14 @@ impl Renderer {
             render_pipeline, 
             texture_bind_group_layout, 
             textures: vec![],
-            desired_res
+            desired_res,
+            glyph_brush,
+            staging_belt,
+            staging_belt_local_pool,
+            staging_belt_local_spawner,
         }
     }
-    pub fn render(&mut self, renderables: &Vec<Renderable>) {
+    pub fn render(&mut self, renderables: &Vec<Renderable>, renderable_texts: &Vec<RenderableText>) {
         // SEND BUFFERS AND SHIT TO GPU AND RENDER
         let frame = self.swap_chain.get_current_frame()
             .expect("Didnt get frame")
@@ -260,21 +282,55 @@ impl Renderer {
 
             render_pass.set_pipeline(&self.render_pipeline);
 
-            for (i, renderable) in renderables.iter().enumerate() {
-                if renderable.texture_id as usize > (self.textures.len() - 1) {
-                    println!("Wrong texture id {:?}. Can't render", renderable.texture_id);
-                } else {
-                    let texture = self.textures.get(renderable.texture_id as usize).unwrap();
-                    let buffer = buffers.get(i).unwrap();
-                    let bind_group = texture.bind_group.as_ref().unwrap();
-                    render_pass.set_vertex_buffer(0, buffer.slice(..));
-                    render_pass.set_bind_group(0, bind_group, &[]);
-                    render_pass.draw(0..6, 0..1);
-                }
-            }            
+            // Render renderables
+            {
+                for (i, renderable) in renderables.iter().enumerate() {
+                    if renderable.texture_id as usize > (self.textures.len() - 1) {
+                        println!("Wrong texture id {:?}. Can't render", renderable.texture_id);
+                    } else {
+                        let texture = self.textures.get(renderable.texture_id as usize).unwrap();
+                        let buffer = buffers.get(i).unwrap();
+                        let bind_group = texture.bind_group.as_ref().unwrap();
+                        render_pass.set_vertex_buffer(0, buffer.slice(..));
+                        render_pass.set_bind_group(0, bind_group, &[]);
+                        render_pass.draw(0..6, 0..1);
+                    }
+                }  
+            }     
         }
+        // Render text
+        {
+            for renderable_text in renderable_texts {
+                self.glyph_brush.queue(Section {
+                    screen_position: (renderable_text.x * self.size.width as f32, renderable_text.y * self.size.height as f32),
+                    text: vec![
+                        Text::new(&renderable_text.text)
+                            .with_color(renderable_text.color)
+                            .with_scale(renderable_text.size)
+                    ],
+                    ..Section::default()
+                });
+            }
+            
+
+            self.glyph_brush.draw_queued(
+                &self.device, 
+                &mut self.staging_belt, 
+                &mut encoder, 
+                &frame.view, 
+                self.size.width, 
+                self.size.height,
+            ).expect("Drawing glyphs queued");
+        }
+        self.staging_belt.finish();
 
         self.queue.submit(std::iter::once(encoder.finish()));
+
+        self.staging_belt_local_spawner
+            .spawn(self.staging_belt.recall())
+            .expect("Staging belt recall;");
+
+        self.staging_belt_local_pool.run_until_stalled();
     }
     pub fn resize(&mut self, new_size: winit::dpi::PhysicalSize<u32>) {
         self.size = new_size;
@@ -299,4 +355,12 @@ pub struct Renderable {
     pub p2: [f32; 2],
     pub use_texture_size: bool,
     pub horiz_mirror: bool,
+}
+
+pub struct RenderableText {
+    pub text: String,
+    pub x: f32,
+    pub y: f32,
+    pub size: f32,
+    pub color: [f32; 4]
 }

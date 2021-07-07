@@ -572,11 +572,31 @@ impl Game {
         to_return
     }
 
-    pub fn get_renderables(&self) -> Vec<Renderable> {
+    pub fn get_renderables(&self) -> (Vec<Renderable>, Vec<RenderableText>) {
         let mut ui_renderables = self.get_ui_renderables();
         let mut world_renderables = self.get_world_renderables();
         ui_renderables.append(&mut world_renderables);
-        ui_renderables
+
+        let mut renderable_texts: Vec<RenderableText> = Vec::new();
+        {
+            renderable_texts.push(RenderableText {
+                color: [0., 0., 0., 1.],
+                size: 32.,
+                text: "First Text..:?".to_owned(),
+                x: 0.4,
+                y: 0.3,
+            });
+        }
+        {
+            renderable_texts.push(RenderableText {
+                color: [1., 0., 0., 1.],
+                size: 16.,
+                text: "Some other text".to_owned(),
+                x: 0.,
+                y: 0.,
+            });
+        }
+        (ui_renderables, renderable_texts)
     }
 
     fn add_entity(&mut self) -> usize {

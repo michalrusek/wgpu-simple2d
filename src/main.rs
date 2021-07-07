@@ -40,7 +40,8 @@ fn main() {
                 last_time = std::time::Instant::now();
 
                 game.update(time_passed);
-                renderer.render(&game.get_renderables());
+                let (renderables, renderable_texts) = &game.get_renderables();
+                renderer.render(renderables, renderable_texts);
             }
             Event::MainEventsCleared => {
                 window.request_redraw();

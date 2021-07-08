@@ -91,6 +91,7 @@ pub enum EntityType {
     Player,
     Static,
     Pineapple,
+    EndFlag,
 }
 
 pub struct MarkedForDeletion {

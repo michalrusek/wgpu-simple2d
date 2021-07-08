@@ -7,3 +7,4 @@ pub mod collision;
 pub mod player_animation;
 pub mod player_pineapple;
 pub mod points_ticking_down;
+pub mod flag_reached;

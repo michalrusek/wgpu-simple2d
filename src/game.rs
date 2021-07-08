@@ -9,6 +9,7 @@ use crate::systems::collision::*;
 use crate::systems::player_animation::*;
 use crate::systems::player_pineapple::*;
 use crate::systems::points_ticking_down::*;
+use crate::systems::flag_reached::*;
 use std::any;
 use std::cell::{RefCell, RefMut};
 use std::collections::HashMap;
@@ -268,6 +269,42 @@ impl Game {
                     self.add_component_to_entity(pineapple_index, EntityType::Pineapple);
                 }
             }
+
+            // End flag
+            {
+                let flag_id = self.add_entity();
+                self.add_component_to_entity(flag_id, Position {x: (self.target_resolution[0] - 96) as f32 / self.target_resolution[0] as f32, y: 376. / self.target_resolution[1] as f32});
+                self.add_component_to_entity(flag_id, RigidBody {width: 128. / self.target_resolution[0] as f32, height: 128. / self.target_resolution[1] as f32});
+                self.add_component_to_entity(flag_id, EntityType::EndFlag);
+
+                // Flag animation
+                let anim = {
+                    let mut sprites: Vec<Sprite> = Vec::new();
+                    for i in 0..10 {
+                        let filename_prefix: String = "res/end_flag/row-1-col-".to_owned();
+                        let extension = ".png";
+                        let full_filename = filename_prefix + &(i + 1).to_string() + extension;
+                        let texture = renderer.register_texture(&full_filename);
+                        sprites.push(Sprite {
+                            texture_id: texture,
+                            render: true,
+                            width_normalized: 128. / self.target_resolution[0] as f32,
+                            height_normalized: 128. / self.target_resolution[1] as f32,
+                            z: 0,
+                        });
+                    }   
+                    Animation {
+                        animation_name: "running_right",
+                        current_frame_index: 0,
+                        running: true,
+                        sprites,
+                        time_per_frame_ms: 50,
+                        time_since_last_frame: 0,
+                    }
+                };
+
+                self.add_component_to_entity(flag_id, anim);
+            }
         }
     }
 
@@ -381,6 +418,21 @@ impl Game {
                 player_pineapple_system(&collision_list_components, &mut marked_for_deletion_components, &entity_type_components, &mut points_components, self.player_index);
             }
         }
+
+        // Flag reached system
+        if let (
+            Some(collision_list_components),
+            Some(entity_type_components),
+        ) = (
+            self.borrow_component_vector_mut::<CollisionList>(),
+            self.borrow_component_vector_mut::<EntityType>(),
+        ) {
+            if flag_reached_system(&collision_list_components, &entity_type_components, self.player_index) {
+                // TODO: Scene transition to "you won" screen
+                println!("YOU'VE WON");
+                return true;
+            }
+        }
         
         // Points ticking down system
         if let (
@@ -388,10 +440,10 @@ impl Game {
         ) = (
             self.borrow_component_vector_mut::<Points>(),
         ) {
-            let game_over = points_ticking_down(&mut points_components, time_passed, self.player_index);
-            if game_over {
+            if points_ticking_down(&mut points_components, time_passed, self.player_index) {
                 // TODO: Scene transition to game_over instead of returning game_over as boolean
-                return game_over;
+                println!("GAME OVER");
+                return true;
             }
         }
 

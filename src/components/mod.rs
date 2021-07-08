@@ -45,6 +45,7 @@ pub struct Velocity {
 
 pub struct Points {
     pub points: u32,
+    pub time_since_last_point_change_ms: u32,
 }
 
 pub struct RigidBody {

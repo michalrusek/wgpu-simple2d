@@ -8,6 +8,7 @@ use crate::systems::physics::*;
 use crate::systems::collision::*;
 use crate::systems::player_animation::*;
 use crate::systems::player_pineapple::*;
+use crate::systems::points_ticking_down::*;
 use std::any;
 use std::cell::{RefCell, RefMut};
 use std::collections::HashMap;
@@ -184,7 +185,7 @@ impl Game {
             self.add_component_to_entity(self.player_index, CollisionList {list: Vec::new()});
             self.add_component_to_entity(self.player_index, PlayerState{state: PlayerStateKind::Idle});
             self.add_component_to_entity(self.player_index, EntityType::Player);
-            self.add_component_to_entity(self.player_index, Points{points: 0});
+            self.add_component_to_entity(self.player_index, Points{points: 10, time_since_last_point_change_ms: 0});
         }
 
         // Load terrain
@@ -270,7 +271,7 @@ impl Game {
         }
     }
 
-    pub fn update(&mut self, time_passed: u128) {
+    pub fn update(&mut self, time_passed: u128) -> bool {
         // LEFT AS AN EXAMPLE HERE ON HOW TO ITERATE AND SHIT
         // if false {
         //     let mut names = self.borrow_component_vector_mut::<Name>().unwrap();
@@ -380,6 +381,19 @@ impl Game {
                 player_pineapple_system(&collision_list_components, &mut marked_for_deletion_components, &entity_type_components, &mut points_components, self.player_index);
             }
         }
+        
+        // Points ticking down system
+        if let (
+            Some(mut points_components),
+        ) = (
+            self.borrow_component_vector_mut::<Points>(),
+        ) {
+            let game_over = points_ticking_down(&mut points_components, time_passed, self.player_index);
+            if game_over {
+                // TODO: Scene transition to game_over instead of returning game_over as boolean
+                return game_over;
+            }
+        }
 
         // Clear up the keyboard input queue
         {
@@ -401,6 +415,8 @@ impl Game {
                 self.delete_entity(index_to_delete);
             }
         }
+
+        false
     }
 
     pub fn process_keyboard_input(&mut self, input: &winit::event::KeyboardInput) {
@@ -477,9 +493,9 @@ impl Game {
         to_return
     }
 
-    fn get_ui_renderables(&self) -> Vec<Renderable> {
+    fn get_ui_renderables(&self) -> (Vec<Renderable>, Vec<RenderableText>) {
         // TODO: Render ui
-        let mut to_return: Vec<Renderable> = Vec::new();
+        let mut renderables: Vec<Renderable> = Vec::new();
         let mut z_buffer: Vec<u32> = Vec::new(); // TODO: Could do Z-checks work on a GPU instead proly
 
         // Sprite rendering function
@@ -488,52 +504,51 @@ impl Game {
                 let (x1, y1) = (position.x, position.y);
                 let (x2, y2) = (position.x + sprite.width_normalized, position.y + sprite.height_normalized);
                 let new_renderable = Renderable{ p1: [x1, y1], p2: [x2, y2], texture_id: sprite.texture_id, use_texture_size: false, horiz_mirror };
-                if to_return.is_empty() {
-                    to_return.push(new_renderable);
+                if renderables.is_empty() {
+                    renderables.push(new_renderable);
                     z_buffer.push(sprite.z);
                 } else {
                     // find the spot for the new thing
-                    let mut new_index = to_return.len();
-                    for (i, _) in to_return.iter().enumerate() {
+                    let mut new_index = renderables.len();
+                    for (i, _) in renderables.iter().enumerate() {
                         if z_buffer.get(i).unwrap() < &sprite.z {
                             new_index = i;
                             break;
                         }
                     }
-                    to_return.insert(new_index, new_renderable);
+                    renderables.insert(new_index, new_renderable);
                     z_buffer.insert(new_index, sprite.z);
                 }
             }
         };
 
-        to_return
+        let mut renderable_texts: Vec<RenderableText> = Vec::new();
+        // Points
+        {
+            if let Some(points_component_vector) = self.borrow_component_vector_mut::<Points>() {
+                if let Some(Some(player_points)) = points_component_vector.get(self.player_index) {
+                    let points_prefix: String = "Points: ".to_owned();
+                    renderable_texts.push(RenderableText {
+                        color: [1., 0., 0., 1.],
+                        size: 16.,
+                        text: (points_prefix + &player_points.points.to_string()),
+                        x: 0.02,
+                        y: 0.02,
+                    });
+                }
+            }
+        }
+
+        (renderables, renderable_texts)
     }
 
     pub fn get_renderables(&self) -> (Vec<Renderable>, Vec<RenderableText>) {
-        let mut ui_renderables = self.get_ui_renderables();
+        let (mut ui_renderables, ui_renderable_texts) = self.get_ui_renderables();
         let mut world_renderables = self.get_world_renderables();
         ui_renderables.append(&mut world_renderables);
 
-        let mut renderable_texts: Vec<RenderableText> = Vec::new();
-        {
-            renderable_texts.push(RenderableText {
-                color: [0., 0., 0., 1.],
-                size: 32.,
-                text: "First Text..:?".to_owned(),
-                x: 0.4,
-                y: 0.3,
-            });
-        }
-        {
-            renderable_texts.push(RenderableText {
-                color: [1., 0., 0., 1.],
-                size: 16.,
-                text: "Some other text".to_owned(),
-                x: 0.,
-                y: 0.,
-            });
-        }
-        (ui_renderables, renderable_texts)
+        
+        (ui_renderables, ui_renderable_texts)
     }
 
     fn add_entity(&mut self) -> usize {

@@ -144,11 +144,11 @@ impl Renderer {
                             blend: Some(wgpu::BlendState {
                                 alpha: wgpu::BlendComponent {
                                     src_factor: wgpu::BlendFactor::One,
-                                    dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
-                                    operation: wgpu::BlendOperation::Add,
+                                    dst_factor: wgpu::BlendFactor::One,
+                                    operation: wgpu::BlendOperation::Min,
                                 },
                                 color: wgpu::BlendComponent {
-                                    src_factor: wgpu::BlendFactor::Src,
+                                    src_factor: wgpu::BlendFactor::SrcAlpha,
                                     dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
                                     operation: wgpu::BlendOperation::Add,
                                 },
@@ -263,8 +263,8 @@ impl Renderer {
                             load: wgpu::LoadOp::Clear(wgpu::Color {
                                 r: 0.0,
                                 g: 0.0,
-                                b: 0.4,
-                                a: 1.0,
+                                b: 0.0,
+                                a: 0.0,
                             }),
                             store: true,
                         }

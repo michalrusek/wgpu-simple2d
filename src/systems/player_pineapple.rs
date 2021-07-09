@@ -19,7 +19,7 @@ pub fn player_pineapple_system(
             if let Some(Some(entity_type)) = entity_type_component_vector.get(collision.collided_with) {
                 match entity_type {
                     &EntityType::Pineapple => {
-                        points.points += 10;
+                        points.points += 1;
                         if let Some(Some(marked_for_deletion)) = marked_for_deletion_component_vector.get_mut(collision.collided_with) {
                             marked_for_deletion.marked = true;
                         }

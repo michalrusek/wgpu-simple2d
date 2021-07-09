@@ -39,7 +39,7 @@ fn main() {
                 let time_passed = last_time.elapsed().as_millis();
                 last_time = std::time::Instant::now();
 
-                if game.update(time_passed) {
+                if game.update(time_passed, &mut renderer) {
                     *control_flow = ControlFlow::Exit;
                 }
                 let (renderables, renderable_texts) = &game.get_renderables();

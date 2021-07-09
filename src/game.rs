@@ -14,23 +14,35 @@ use std::any;
 use std::cell::{RefCell, RefMut};
 use std::collections::HashMap;
 
+enum Scenes {
+    Ingame,
+    GameOver,
+    YouWon,
+}
+
 pub struct Game {
     target_resolution: [u32; 2],
     keyboard_input_queue: Vec<winit::event::KeyboardInput>,
     player_index: usize,
     entity_count: usize,
     component_vectors: Vec<Box<dyn ComponentsVector>>, // Vector containing other vectors - each vector here is of a component type and has components of that type;
+    current_scene: Scenes
 }
 
 impl Game {
     pub fn new(target_resolution: [u32; 2]) -> Self {
 
-        Self {target_resolution, entity_count: 0, component_vectors: Vec::new(), player_index: 0, keyboard_input_queue: Vec::new()}
+        Self {target_resolution, entity_count: 0, component_vectors: Vec::new(), player_index: 0, keyboard_input_queue: Vec::new(), current_scene: Scenes::Ingame}
     }
 
-    pub fn init(&mut self, renderer: &mut Renderer) {
-        // Initialize components and stuff here
+    fn clear_scene(&mut self) {
+        self.component_vectors = Vec::new();
+        self.entity_count = 0;
+        self.player_index = 0;
+        self.keyboard_input_queue = Vec::new();
+    }
 
+    fn init_scene_in_game(&mut self, renderer: &mut Renderer) {
         // Load player
         {   
             // Add a new entity for the player
@@ -307,8 +319,26 @@ impl Game {
             }
         }
     }
+    fn init_scene_game_over(&mut self, renderer: &mut Renderer) {}
+    fn init_scene_you_won(&mut self, renderer: &mut Renderer) {}
 
-    pub fn update(&mut self, time_passed: u128) -> bool {
+    pub fn init(&mut self, renderer: &mut Renderer) {
+        // Initialize components and stuff here
+        self.swap_scene(Scenes::Ingame, renderer);
+    }
+
+    fn swap_scene(&mut self, scene: Scenes, renderer: &mut Renderer) {
+        self.clear_scene();
+
+        match scene {
+            Scenes::Ingame => { self.init_scene_in_game(renderer); },
+            Scenes::GameOver => { self.init_scene_game_over(renderer); },
+            Scenes::YouWon => { self.init_scene_you_won(renderer); }
+        }
+        self.current_scene = scene;
+    }
+
+    pub fn update(&mut self, time_passed: u128, renderer: &mut Renderer) -> bool {
         // LEFT AS AN EXAMPLE HERE ON HOW TO ITERATE AND SHIT
         // if false {
         //     let mut names = self.borrow_component_vector_mut::<Name>().unwrap();
@@ -317,7 +347,9 @@ impl Game {
         //         println!("{:?}", name.name);
         //     }
         // }
-
+        
+        let mut scene_swap_opt: Option<Scenes> = None;
+        
         // Health system
         {
             if let Some(mut health_components) = self.borrow_component_vector_mut::<Health>() {
@@ -428,9 +460,7 @@ impl Game {
             self.borrow_component_vector_mut::<EntityType>(),
         ) {
             if flag_reached_system(&collision_list_components, &entity_type_components, self.player_index) {
-                // TODO: Scene transition to "you won" screen
-                println!("YOU'VE WON");
-                return true;
+                scene_swap_opt = Some(Scenes::YouWon);
             }
         }
         
@@ -441,9 +471,7 @@ impl Game {
             self.borrow_component_vector_mut::<Points>(),
         ) {
             if points_ticking_down(&mut points_components, time_passed, self.player_index) {
-                // TODO: Scene transition to game_over instead of returning game_over as boolean
-                println!("GAME OVER");
-                return true;
+                scene_swap_opt = Some(Scenes::GameOver);
             }
         }
 
@@ -466,6 +494,10 @@ impl Game {
             for index_to_delete in entities_for_deletion {
                 self.delete_entity(index_to_delete);
             }
+        }
+
+        if let Some(scene_to_swap) = scene_swap_opt {
+            self.swap_scene(scene_to_swap, renderer);
         }
 
         false
@@ -573,24 +605,60 @@ impl Game {
                 }
             }
         };
-
         let mut renderable_texts: Vec<RenderableText> = Vec::new();
-        // Points
-        {
-            if let Some(points_component_vector) = self.borrow_component_vector_mut::<Points>() {
-                if let Some(Some(player_points)) = points_component_vector.get(self.player_index) {
-                    let points_prefix: String = "Points: ".to_owned();
-                    renderable_texts.push(RenderableText {
-                        color: [1., 0., 0., 1.],
-                        size: 16.,
-                        text: (points_prefix + &player_points.points.to_string()),
-                        x: 0.02,
-                        y: 0.02,
-                    });
+
+        match self.current_scene {
+            Scenes::Ingame => {
+                // Points
+                {
+                    if let Some(points_component_vector) = self.borrow_component_vector_mut::<Points>() {
+                        if let Some(Some(player_points)) = points_component_vector.get(self.player_index) {
+                            let points_prefix: String = "Points: ".to_owned();
+                            renderable_texts.push(RenderableText {
+                                color: [1., 0., 0., 1.],
+                                size: 16.,
+                                text: (points_prefix + &player_points.points.to_string()),
+                                x: 0.02,
+                                y: 0.02,
+                            });
+                        }
+                    }
                 }
+            },
+            Scenes::GameOver => {
+                renderable_texts.push(RenderableText {
+                    color: [1., 1., 1., 1.],
+                    size: 64.,
+                    text: "Game Over".to_owned(),
+                    x: 0.27,
+                    y: 0.4,
+                });
+                renderable_texts.push(RenderableText {
+                    color: [1., 1., 1., 1.],
+                    size: 32.,
+                    text: "Press (ESC) to exit.".to_owned(),
+                    x: 0.25,
+                    y: 0.8,
+                });
+            },
+            Scenes::YouWon => {
+                renderable_texts.push(RenderableText {
+                    color: [1., 1., 1., 1.],
+                    size: 64.,
+                    text: "You won!".to_owned(),
+                    x: 0.3,
+                    y: 0.4,
+                });
+                renderable_texts.push(RenderableText {
+                    color: [1., 1., 1., 1.],
+                    size: 32.,
+                    text: "Press (ESC) to exit.".to_owned(),
+                    x: 0.25,
+                    y: 0.8,
+                });
             }
         }
-
+        
         (renderables, renderable_texts)
     }
 

@@ -11,6 +11,7 @@ use crate::systems::player_pineapple::*;
 use crate::systems::points_ticking_down::*;
 use crate::systems::flag_reached::*;
 use std::any;
+use std::any::Any;
 use std::cell::{RefCell, RefMut};
 use std::collections::HashMap;
 
@@ -23,7 +24,7 @@ enum Scenes {
 pub struct Game {
     target_resolution: [u32; 2],
     keyboard_input_queue: Vec<winit::event::KeyboardInput>,
-    player_index: usize,
+    player_index: Option<usize>,
     entity_count: usize,
     component_vectors: Vec<Box<dyn ComponentsVector>>, // Vector containing other vectors - each vector here is of a component type and has components of that type;
     current_scene: Scenes
@@ -32,13 +33,13 @@ pub struct Game {
 impl Game {
     pub fn new(target_resolution: [u32; 2]) -> Self {
 
-        Self {target_resolution, entity_count: 0, component_vectors: Vec::new(), player_index: 0, keyboard_input_queue: Vec::new(), current_scene: Scenes::Ingame}
+        Self {target_resolution, entity_count: 0, component_vectors: Vec::new(), player_index: None, keyboard_input_queue: Vec::new(), current_scene: Scenes::Ingame}
     }
 
     fn clear_scene(&mut self) {
         self.component_vectors = Vec::new();
         self.entity_count = 0;
-        self.player_index = 0;
+        self.player_index = None;
         self.keyboard_input_queue = Vec::new();
     }
 
@@ -46,7 +47,8 @@ impl Game {
         // Load player
         {   
             // Add a new entity for the player
-            self.player_index = self.add_entity();
+            let player_index = self.add_entity();
+            self.player_index = Some(player_index);
 
             // Prepare all animations for the player
             let anim_map = {
@@ -186,19 +188,19 @@ impl Game {
                 }
                 anim_map
             };
-            self.add_component_to_entity(self.player_index, anim_map);
+            self.add_component_to_entity(player_index, anim_map);
             
             // Prepare the rest of simpler components
-            self.add_component_to_entity(self.player_index, Name {name: "silly boi"});
-            self.add_component_to_entity(self.player_index, Health {health: 100});
-            self.add_component_to_entity(self.player_index, Position {x: 100. / self.target_resolution[0] as f32, y: 0. / self.target_resolution[1] as f32});
-            self.add_component_to_entity(self.player_index, Gravity {affected_by_gravity: true});
-            self.add_component_to_entity(self.player_index, Velocity {vel_x: 0., vel_y: 0.});
-            self.add_component_to_entity(self.player_index, RigidBody {width: 64. / self.target_resolution[0] as f32, height: 64. / self.target_resolution[1] as f32});
-            self.add_component_to_entity(self.player_index, CollisionList {list: Vec::new()});
-            self.add_component_to_entity(self.player_index, PlayerState{state: PlayerStateKind::Idle});
-            self.add_component_to_entity(self.player_index, EntityType::Player);
-            self.add_component_to_entity(self.player_index, Points{points: 10, time_since_last_point_change_ms: 0});
+            self.add_component_to_entity(player_index, Name {name: "silly boi"});
+            self.add_component_to_entity(player_index, Health {health: 100});
+            self.add_component_to_entity(player_index, Position {x: 100. / self.target_resolution[0] as f32, y: 0. / self.target_resolution[1] as f32});
+            self.add_component_to_entity(player_index, Gravity {affected_by_gravity: true});
+            self.add_component_to_entity(player_index, Velocity {vel_x: 0., vel_y: 0.});
+            self.add_component_to_entity(player_index, RigidBody {width: 64. / self.target_resolution[0] as f32, height: 64. / self.target_resolution[1] as f32});
+            self.add_component_to_entity(player_index, CollisionList {list: Vec::new()});
+            self.add_component_to_entity(player_index, PlayerState{state: PlayerStateKind::Idle});
+            self.add_component_to_entity(player_index, EntityType::Player);
+            self.add_component_to_entity(player_index, Points{points: 10, time_since_last_point_change_ms: 0});
         }
 
         // Load terrain
@@ -250,9 +252,10 @@ impl Game {
                 self.add_component_to_entity(terrain_index, EntityType::Static);
             }
             {   
-                for i in 0..20 {
+                for i in 0..10 {
                     let pineapple_index = self.add_entity();
                     let mut sprites: Vec<Sprite> = Vec::new();
+                    // TODO: Load animation only once and reuse it for each pineapple
                     for i in 0..17 {
                         let filename_prefix: String = "res/pineapple/row-1-col-".to_owned();
                         let extension = ".png";
@@ -274,7 +277,7 @@ impl Game {
                         time_since_last_frame: 0,
                         sprites
                     });
-                    let pineapple_x = 200 + i * 50;
+                    let pineapple_x = 200 + i * 100;
                     self.add_component_to_entity(pineapple_index, Position {x: pineapple_x as f32 / self.target_resolution[0] as f32, y: 504. / self.target_resolution[1] as f32});
                     self.add_component_to_entity(pineapple_index, RigidBody {width: 96. / self.target_resolution[0] as f32, height: 96. / self.target_resolution[1] as f32});
                     self.add_component_to_entity(pineapple_index, MarkedForDeletion {marked: false});
@@ -320,20 +323,29 @@ impl Game {
         }
     }
     fn init_scene_game_over(&mut self, renderer: &mut Renderer) {}
-    fn init_scene_you_won(&mut self, renderer: &mut Renderer) {}
+    fn init_scene_you_won(&mut self, renderer: &mut Renderer, args: Option<Vec<Box<dyn Any>>>) {
+        if let Some(args) = args {
+            if let Some(player_points) = args.get(0) {
+                if let Some(points) = player_points.as_ref().downcast_ref::<u32>() {
+                    let entity_id = self.add_entity();
+                    self.add_component_to_entity(entity_id, Points { points: *points, time_since_last_point_change_ms: 0 });
+                }
+            }
+        }
+    }
 
     pub fn init(&mut self, renderer: &mut Renderer) {
         // Initialize components and stuff here
-        self.swap_scene(Scenes::Ingame, renderer);
+        self.swap_scene(Scenes::Ingame, renderer, None);
     }
 
-    fn swap_scene(&mut self, scene: Scenes, renderer: &mut Renderer) {
+    fn swap_scene(&mut self, scene: Scenes, renderer: &mut Renderer, args: Option<Vec<Box<dyn Any>>>) {
         self.clear_scene();
 
         match scene {
             Scenes::Ingame => { self.init_scene_in_game(renderer); },
             Scenes::GameOver => { self.init_scene_game_over(renderer); },
-            Scenes::YouWon => { self.init_scene_you_won(renderer); }
+            Scenes::YouWon => { self.init_scene_you_won(renderer, args); }
         }
         self.current_scene = scene;
     }
@@ -349,6 +361,7 @@ impl Game {
         // }
         
         let mut scene_swap_opt: Option<Scenes> = None;
+        let mut scene_swap_args: Option<Vec<Box<dyn Any>>> = None;
         
         // Health system
         {
@@ -460,7 +473,16 @@ impl Game {
             self.borrow_component_vector_mut::<EntityType>(),
         ) {
             if flag_reached_system(&collision_list_components, &entity_type_components, self.player_index) {
-                scene_swap_opt = Some(Scenes::YouWon);
+                if let Some(player_index) = self.player_index {
+                    scene_swap_opt = Some(Scenes::YouWon);
+                    if let Some(points_vector) = self.borrow_component_vector_mut::<Points>() {
+                        if let Some(Some(player_points)) = points_vector.get(player_index) {
+                            let mut args: Vec<Box<dyn Any>> = Vec::new();
+                            args.push(Box::new(player_points.points));
+                            scene_swap_args = Some(args);
+                        }
+                    }
+                }
             }
         }
         
@@ -497,7 +519,7 @@ impl Game {
         }
 
         if let Some(scene_to_swap) = scene_swap_opt {
-            self.swap_scene(scene_to_swap, renderer);
+            self.swap_scene(scene_to_swap, renderer, scene_swap_args);
         }
 
         false
@@ -611,16 +633,18 @@ impl Game {
             Scenes::Ingame => {
                 // Points
                 {
-                    if let Some(points_component_vector) = self.borrow_component_vector_mut::<Points>() {
-                        if let Some(Some(player_points)) = points_component_vector.get(self.player_index) {
-                            let points_prefix: String = "Points: ".to_owned();
-                            renderable_texts.push(RenderableText {
-                                color: [1., 0., 0., 1.],
-                                size: 16.,
-                                text: (points_prefix + &player_points.points.to_string()),
-                                x: 0.02,
-                                y: 0.02,
-                            });
+                    if let Some(player_index) = self.player_index {
+                        if let Some(points_component_vector) = self.borrow_component_vector_mut::<Points>() {
+                            if let Some(Some(player_points)) = points_component_vector.get(player_index) {
+                                let points_prefix: String = "Points: ".to_owned();
+                                renderable_texts.push(RenderableText {
+                                    color: [1., 0., 0., 1.],
+                                    size: 16.,
+                                    text: (points_prefix + &player_points.points.to_string()),
+                                    x: 0.02,
+                                    y: 0.02,
+                                });
+                            }
                         }
                     }
                 }
@@ -649,11 +673,26 @@ impl Game {
                     x: 0.3,
                     y: 0.4,
                 });
+                // Points
+                {
+                    if let Some(points_component_vector) = self.borrow_component_vector_mut::<Points>() {
+                        if let Some(Some(player_points)) = points_component_vector.get(0) {
+                            let points_prefix: String = "Points: ".to_owned();
+                            renderable_texts.push(RenderableText {
+                                color: [1., 0.5, 0.5, 1.],
+                                size: 32.,
+                                text: (points_prefix + &player_points.points.to_string()),
+                                x: 0.36,
+                                y: 0.6,
+                            });
+                        }
+                    }
+                }
                 renderable_texts.push(RenderableText {
                     color: [1., 1., 1., 1.],
-                    size: 32.,
+                    size: 16.,
                     text: "Press (ESC) to exit.".to_owned(),
-                    x: 0.25,
+                    x: 0.36,
                     y: 0.8,
                 });
             }

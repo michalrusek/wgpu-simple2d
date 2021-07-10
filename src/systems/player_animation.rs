@@ -4,49 +4,51 @@ use crate::components::*;
 pub fn player_animation_system(
     mut velocity_component_vector: &mut RefMut<Vec<Option<Velocity>>>, 
     mut animation_map_component_vector: &mut RefMut<Vec<Option<AnimationMap>>>, 
-    player_index: usize, 
+    player_index: Option<usize>, 
 ) {
-    if let (
-        Some(Some(velocity)),
-        Some(Some(animation_map)),
-    ) = (
-        velocity_component_vector.get(player_index),
-        animation_map_component_vector.get_mut(player_index),
-    ) {
-        let ensure_correct_animation_playing = |animation_map: &mut AnimationMap, animation_name: &str| {
-            if animation_map.current_animation_name != animation_name {
-                disable_current_animation(animation_map);
-                enable_animation(animation_map, animation_name);
-            }
-        };
-
-        let (vel_x, vel_y) = (velocity.vel_x, velocity.vel_y);
-
-        if vel_y < 0. {
-            ensure_correct_animation_playing(animation_map, "jump");
-            if vel_x < 0. {
-                animation_map.horiz_mirror = true;
-            } else {
+    if let Some(player_index) = player_index {
+        if let (
+            Some(Some(velocity)),
+            Some(Some(animation_map)),
+        ) = (
+            velocity_component_vector.get(player_index),
+            animation_map_component_vector.get_mut(player_index),
+        ) {
+            let ensure_correct_animation_playing = |animation_map: &mut AnimationMap, animation_name: &str| {
+                if animation_map.current_animation_name != animation_name {
+                    disable_current_animation(animation_map);
+                    enable_animation(animation_map, animation_name);
+                }
+            };
+    
+            let (vel_x, vel_y) = (velocity.vel_x, velocity.vel_y);
+    
+            if vel_y < 0. {
+                ensure_correct_animation_playing(animation_map, "jump");
+                if vel_x < 0. {
+                    animation_map.horiz_mirror = true;
+                } else {
+                    animation_map.horiz_mirror = false;
+                }
+            } else if vel_y > 0. {
+                ensure_correct_animation_playing(animation_map, "fall");
+                if vel_x < 0. {
+                    animation_map.horiz_mirror = true;
+                } else {
+                    animation_map.horiz_mirror = false;
+                }
+            } else if vel_x > 0. {
+                ensure_correct_animation_playing(animation_map, "running_right");
                 animation_map.horiz_mirror = false;
-            }
-        } else if vel_y > 0. {
-            ensure_correct_animation_playing(animation_map, "fall");
-            if vel_x < 0. {
+            } else if vel_x < 0. {
+                ensure_correct_animation_playing(animation_map, "running_right");
                 animation_map.horiz_mirror = true;
-            } else {
-                animation_map.horiz_mirror = false;
-            }
-        } else if vel_x > 0. {
-            ensure_correct_animation_playing(animation_map, "running_right");
-            animation_map.horiz_mirror = false;
-        } else if vel_x < 0. {
-            ensure_correct_animation_playing(animation_map, "running_right");
-            animation_map.horiz_mirror = true;
-        } else if vel_y  == 0. {
-            // The idle animation will take over the horiz_mirror parameter of the last animation that was playing
-            // that way if we were running left and stopped the idle animation will be facing left too
-            ensure_correct_animation_playing(animation_map, "idle");
-        } 
+            } else if vel_y  == 0. {
+                // The idle animation will take over the horiz_mirror parameter of the last animation that was playing
+                // that way if we were running left and stopped the idle animation will be facing left too
+                ensure_correct_animation_playing(animation_map, "idle");
+            } 
+        }
     }
 }
 
